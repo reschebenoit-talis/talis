@@ -640,27 +640,28 @@ function TeacherApp({onLogout}) {
   }
 
   const handleImport=async(rows)=>{
-    // Create missing classes
+    // Create missing classes first
     const classMap={...Object.fromEntries(classes.map(c=>[c.name.toLowerCase(),c.id]))}
     const newClassNames=[...new Set(rows.map(r=>r.className).filter(n=>n&&!classMap[n.toLowerCase()]))]
     for(let i=0;i<newClassNames.length;i++){
       const name=newClassNames[i]
       const color=CLASS_COLORS[(classes.length+i)%CLASS_COLORS.length]
-      const {data}=await supabase.from('classes').insert({name,color}).select().single()
-      if(data){classMap[name.toLowerCase()]=data.id;setClasses(c=>[...c,data])}
+      const {data,error}=await supabase.from('classes').insert({name,color}).select().single()
+      if(data) classMap[name.toLowerCase()]=data.id
+      if(error) console.error('Erreur classe:',error)
     }
-    // Insert students (skip duplicates)
-    const toInsert=rows.map(r=>({
-      first_name:r.firstName, last_name:r.lastName, email:r.email,
-      password_hash:'talis2024', must_change_password:true,
-      class_id:r.className?classMap[r.className.toLowerCase()]||null:null,
-      progress:0
-    }))
-    const {data:inserted}=await supabase.from('students').upsert(toInsert,{onConflict:'email',ignoreDuplicates:true}).select()
-    if(inserted) setStudents(s=>{
-      const existing=new Set(s.map(x=>x.email))
-      return [...s,...inserted.filter(x=>!existing.has(x.email))]
-    })
+    // Insert students one by one to catch silent failures
+    for(const r of rows){
+      const classId=r.className?classMap[r.className.toLowerCase()]||null:null
+      const {error}=await supabase.from('students').upsert({
+        first_name:r.firstName, last_name:r.lastName, email:r.email,
+        password_hash:'talis2024', must_change_password:true,
+        class_id:classId, progress:0
+      },{onConflict:'email'})
+      if(error) console.error('Erreur import eleve:',r.email,error)
+    }
+    // Reload everything from DB to get fresh data with class joins
+    await loadAll()
   }
 
   const addVideo=async()=>{
