@@ -227,8 +227,8 @@ function ExcelImporter({classes,onImport,onClose}) {
         const getCol=(...ns)=>{ for(const n of ns){ const i=keys.findIndex(k=>k===n); if(i!==-1) return String(vals[i]||'').trim() } for(const n of ns){ const i=keys.findIndex(k=>k.includes(n)); if(i!==-1) return String(vals[i]||'').trim() } return '' }
         const firstName=getCol('prénom','prenom','firstname','first name','first_name')
         const lastName=getCol('nom','lastname','last name','last_name','surname')
-        const email=get('email','mail','courriel')
-        const className=get('classe','class','groupe','group')
+        const email=getCol('email','mail','courriel','e-mail')
+        const className=getCol('classe','class','groupe','group')
         if(!firstName||!lastName){errs.push(`Ligne ${row} : prénom/nom manquant`);return}
         if(!email||!email.includes('@')){errs.push(`Ligne ${row} : email invalide`);return}
         valid.push({firstName,lastName,email:email.toLowerCase(),className})
