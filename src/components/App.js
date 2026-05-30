@@ -640,6 +640,7 @@ function TeacherApp({onLogout}) {
   }
 
   const handleImport=async(rows)=>{
+    const errors=[]
     // Create missing classes first
     const classMap={...Object.fromEntries(classes.map(c=>[c.name.toLowerCase(),c.id]))}
     const newClassNames=[...new Set(rows.map(r=>r.className).filter(n=>n&&!classMap[n.toLowerCase()]))]
@@ -648,9 +649,10 @@ function TeacherApp({onLogout}) {
       const color=CLASS_COLORS[(classes.length+i)%CLASS_COLORS.length]
       const {data,error}=await supabase.from('classes').insert({name,color}).select().single()
       if(data) classMap[name.toLowerCase()]=data.id
-      if(error) console.error('Erreur classe:',error)
+      if(error) errors.push('Classe "'+name+'" : '+error.message)
     }
-    // Insert students one by one to catch silent failures
+    // Insert students one by one
+    let ok=0
     for(const r of rows){
       const classId=r.className?classMap[r.className.toLowerCase()]||null:null
       const {error}=await supabase.from('students').upsert({
@@ -658,9 +660,14 @@ function TeacherApp({onLogout}) {
         password_hash:'talis2024', must_change_password:true,
         class_id:classId, progress:0
       },{onConflict:'email'})
-      if(error) console.error('Erreur import eleve:',r.email,error)
+      if(error) errors.push(r.email+' : '+error.message)
+      else ok++
     }
-    // Reload everything from DB to get fresh data with class joins
+    if(errors.length>0){
+      alert('⚠️ '+ok+' élève(s) importé(s).\n\nErreurs :\n'+errors.slice(0,5).join('\n'))
+    } else {
+      alert('✅ '+ok+' élève(s) importé(s) avec succès !')
+    }
     await loadAll()
   }
 
