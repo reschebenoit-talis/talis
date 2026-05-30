@@ -222,10 +222,11 @@ function ExcelImporter({classes,onImport,onClose}) {
       const valid=[],errs=[]
       data.forEach((r,i)=>{
         const row=i+2
-        const keys=Object.keys(r).map(k=>k.toLowerCase())
-        const get=(...ns)=>{ for(const n of ns){ const k=keys.find(k=>k.includes(n)); if(k!==undefined) return String(Object.values(r)[keys.indexOf(k)]||'').trim() } return '' }
-        const firstName=get('prénom','prenom','firstname','first')
-        const lastName=get('nom','lastname','last','name')
+        const keys=Object.keys(r).map(k=>k.toLowerCase().trim())
+        const vals=Object.values(r)
+        const getCol=(...ns)=>{ for(const n of ns){ const i=keys.findIndex(k=>k===n); if(i!==-1) return String(vals[i]||'').trim() } for(const n of ns){ const i=keys.findIndex(k=>k.includes(n)); if(i!==-1) return String(vals[i]||'').trim() } return '' }
+        const firstName=getCol('prénom','prenom','firstname','first name','first_name')
+        const lastName=getCol('nom','lastname','last name','last_name','surname')
         const email=get('email','mail','courriel')
         const className=get('classe','class','groupe','group')
         if(!firstName||!lastName){errs.push(`Ligne ${row} : prénom/nom manquant`);return}
