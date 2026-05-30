@@ -1065,13 +1065,7 @@ function LoginScreen({onLogin}) {
           {err&&<div style={{color:G.accentHot,fontSize:13,textAlign:'center'}}>{err}</div>}
           <Btn onClick={submit} full loading={loading}>Se connecter</Btn>
         </div>
-        <div style={{marginTop:16,background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:14}}>
-          <div style={{fontSize:12,color:G.muted,marginBottom:7,fontWeight:600}}>🔑 Comptes démo</div>
-          <div style={{fontSize:12,color:G.muted,lineHeight:1.9}}>
-            <div>👨‍🏫 <strong style={{color:G.accentHot}}>prof@talis.fr</strong> / prof123</div>
-            <div>👩‍🎓 <strong style={{color:G.accent}}>emma@ecole.fr</strong> / talis2024</div>
-          </div>
-        </div>
+
       </div>
     </div>
   )
