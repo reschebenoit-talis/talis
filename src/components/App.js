@@ -422,7 +422,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [showPwd,setShowPwd]=useState(student.must_change_password)
   const [showPwdOpt,setShowPwdOpt]=useState(false)
   const [msgLoading,setMsgLoading]=useState(false)
-  const [unreadTeacher,setUnreadTeacher]=useState(0)
+  const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
 
   useEffect(()=>{
     loadAll()
@@ -448,6 +448,10 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       .subscribe()
     return ()=>{ msgSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe() }
   },[])
+
+  useEffect(()=>{
+    localStorage.setItem('talis_unread_'+student.id, String(unreadTeacher))
+  },[unreadTeacher])
 
   const loadAll=async()=>{
     setLoading(true)
@@ -652,7 +656,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
       <div style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'6px 2px 9px',flexShrink:0}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs')setUnreadTeacher(0)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
@@ -684,7 +688,7 @@ function TeacherApp({onLogout}) {
   const [quiz,setQuiz]=useState({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
-  const [readMsgs,setReadMsgs]=useState({}) // {studentId: lastReadTimestamp}
+  const [readMsgs,setReadMsgs]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_read_msgs')||'{}') }catch{ return {} } })
 
   useEffect(()=>{
     loadAll()
@@ -699,6 +703,10 @@ function TeacherApp({onLogout}) {
       .subscribe()
     return ()=>{ msgSub.unsubscribe(); stuSub.unsubscribe() }
   },[])
+
+  useEffect(()=>{
+    localStorage.setItem('talis_read_msgs', JSON.stringify(readMsgs))
+  },[readMsgs])
 
   const loadAll=async()=>{
     setLoading(true)
@@ -858,6 +866,7 @@ function TeacherApp({onLogout}) {
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100%',background:G.bg}}>
+      {drivePreview&&<DriveViewer url={drivePreview.drive_url} title={drivePreview.title} onBack={()=>setDrivePreview(null)} accent={G.accentHot}/>}
       {showImport&&<ExcelImporter classes={classes} onImport={handleImport} onClose={()=>{setShowImport(false);loadAll()}}/>}
 
       <div style={{padding:'16px 16px 0',display:'flex',alignItems:'center',gap:9,flexShrink:0}}>
@@ -1005,8 +1014,7 @@ function TeacherApp({onLogout}) {
         {/* CONTENT */}
         {tab==='content'&&(
           <div className="fade-up">
-            {drivePreview?<DriveViewer url={drivePreview.drive_url} title={drivePreview.title} onBack={()=>setDrivePreview(null)} accent={G.accentHot}/>:(
-              <>
+            <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>📚 Contenu publié</div>
                 {[['🎬 Vidéos',videos,G.accent,'video'],['📄 Fiches',fiches,G.accentCyan,'fiche'],['🧠 Quiz',quizzes,G.gold,'quiz']].map(([label,items,color,type])=>(
                   <div key={type} style={{marginBottom:15}}>
@@ -1030,8 +1038,7 @@ function TeacherApp({onLogout}) {
                     ))}
                   </div>
                 ))}
-              </>
-            )}
+            </>
           </div>
         )}
 
