@@ -328,27 +328,40 @@ function ChangePwd({onSave,forced,onCancel}) {
   const [p2,setP2]=useState('')
   const [err,setErr]=useState('')
   const [saving,setSaving]=useState(false)
+  const [success,setSuccess]=useState(false)
   const submit=async()=>{
     if(!forced&&!old){setErr('Saisissez votre mot de passe actuel.');return}
     if(p1.length<6){setErr('6 caractères minimum.');return}
     if(p1!==p2){setErr('Les mots de passe ne correspondent pas.');return}
     setSaving(true)
     const ok=await onSave(old,p1)
-    if(!ok){setErr('Mot de passe actuel incorrect.');setSaving(false)}
+    if(!ok){setErr('Mot de passe actuel incorrect.');setSaving(false);return}
+    setSuccess(true)
+    setTimeout(()=>onCancel&&onCancel(),2000)
   }
   return (
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:200,padding:20}}>
       <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:26,width:'100%',maxWidth:340}}>
-        <div className="syne" style={{fontWeight:800,fontSize:17,marginBottom:5}}>{forced?'🔑 Choisissez votre mot de passe':'🔒 Modifier le mot de passe'}</div>
-        {forced&&<div style={{color:G.muted,fontSize:13,marginBottom:14}}>Première connexion — choisissez un mot de passe personnel.</div>}
-        <div style={{display:'flex',flexDirection:'column',gap:9,marginTop:14}}>
-          {!forced&&<Inp value={old} onChange={e=>setOld(e.target.value)} placeholder="Mot de passe actuel" type="password"/>}
-          <Inp value={p1} onChange={e=>setP1(e.target.value)} placeholder="Nouveau mot de passe (min. 6 car.)" type="password"/>
-          <Inp value={p2} onChange={e=>setP2(e.target.value)} placeholder="Confirmer" type="password"/>
-          {err&&<div style={{color:G.accentHot,fontSize:13}}>{err}</div>}
-          <Btn v="green" onClick={submit} full loading={saving}>Enregistrer</Btn>
-          {!forced&&<Btn v="ghost" onClick={onCancel} full>Annuler</Btn>}
-        </div>
+        {success?(
+          <div style={{textAlign:'center',padding:'16px 0'}}>
+            <div style={{fontSize:48,marginBottom:10}}>✅</div>
+            <div className="syne" style={{fontWeight:800,fontSize:17,color:G.accentGreen,marginBottom:6}}>Mot de passe modifié !</div>
+            <div style={{color:G.muted,fontSize:13}}>Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.</div>
+          </div>
+        ):(
+          <>
+            <div className="syne" style={{fontWeight:800,fontSize:17,marginBottom:5}}>{forced?'🔑 Choisissez votre mot de passe':'🔒 Modifier le mot de passe'}</div>
+            {forced&&<div style={{color:G.muted,fontSize:13,marginBottom:14}}>Première connexion — choisissez un mot de passe personnel.</div>}
+            <div style={{display:'flex',flexDirection:'column',gap:9,marginTop:14}}>
+              {!forced&&<Inp value={old} onChange={e=>setOld(e.target.value)} placeholder="Mot de passe actuel" type="password"/>}
+              <Inp value={p1} onChange={e=>setP1(e.target.value)} placeholder="Nouveau mot de passe (min. 6 car.)" type="password"/>
+              <Inp value={p2} onChange={e=>setP2(e.target.value)} placeholder="Confirmer" type="password"/>
+              {err&&<div style={{color:G.accentHot,fontSize:13}}>{err}</div>}
+              <Btn v="green" onClick={submit} full loading={saving}>Enregistrer</Btn>
+              {!forced&&<Btn v="ghost" onClick={onCancel} full>Annuler</Btn>}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -372,17 +385,37 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [showPwd,setShowPwd]=useState(student.must_change_password)
   const [showPwdOpt,setShowPwdOpt]=useState(false)
   const [msgLoading,setMsgLoading]=useState(false)
+  const [unreadTeacher,setUnreadTeacher]=useState(0)
 
-  useEffect(()=>{ loadAll() },[])
+  useEffect(()=>{
+    loadAll()
+    // Realtime: new messages from teacher
+    const msgSub=supabase.channel('student-msgs-'+student.id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'student_id=eq.'+student.id},
+        payload=>{ setMsgs(m=>[...m,payload.new]); setUnreadTeacher(u=>u+1) })
+      .subscribe()
+    // Realtime: new videos for my class
+    const vidSub=supabase.channel('student-vids-'+student.id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'video_classes',filter:'class_id=eq.'+student.class_id},
+        async()=>{ const {data:vRes}=await supabase.from('video_classes').select('video_id,videos(*)').eq('class_id',student.class_id); setVideos((vRes||[]).map(r=>r.videos).filter(Boolean)) })
+      .subscribe()
+    // Realtime: new fiches
+    const ficSub=supabase.channel('student-fics-'+student.id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'fiche_classes',filter:'class_id=eq.'+student.class_id},
+        async()=>{ const {data:fRes}=await supabase.from('fiche_classes').select('fiche_id,fiches(*)').eq('class_id',student.class_id); setFiches((fRes||[]).map(r=>r.fiches).filter(Boolean)) })
+      .subscribe()
+    // Realtime: new quizzes
+    const quizSub=supabase.channel('student-quiz-'+student.id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'quiz_classes',filter:'class_id=eq.'+student.class_id},
+        async()=>{ const {data:qRes}=await supabase.from('quiz_classes').select('quiz_id,quizzes(*,quiz_questions(*))').eq('class_id',student.class_id); setQuizzes((qRes||[]).map(r=>r.quizzes).filter(Boolean)) })
+      .subscribe()
+    return ()=>{ msgSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe() }
+  },[])
 
   const loadAll=async()=>{
     setLoading(true)
-    // Load classes
     const {data:cls}=await supabase.from('classes').select('*')
     setClasses(cls||[])
-    const myClass=cls?.find(c=>c.id===student.class_id)
-
-    // Load content for student's class
     const [vRes,fRes,qRes,rRes,mRes]=await Promise.all([
       supabase.from('video_classes').select('video_id,videos(*)').eq('class_id',student.class_id),
       supabase.from('fiche_classes').select('fiche_id,fiches(*)').eq('class_id',student.class_id),
@@ -434,6 +467,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     if(!student.must_change_password&&student.password_hash!==oldPwd) return false
     await supabase.from('students').update({password_hash:newPwd,must_change_password:false}).eq('id',student.id)
     onPwdSaved(newPwd)
+    setShowPwd(false)
+    setShowPwdOpt(false)
     return true
   }
 
@@ -463,10 +498,10 @@ function StudentApp({student,onLogout,onPwdSaved}) {
           <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:13}}>
             <div className="syne" style={{fontSize:18,fontWeight:800}}>Mon tableau de bord</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              <Stat icon="🎬" label="Vidéos" value={videos.length} color={G.accent}/>
-              <Stat icon="🧠" label="Quiz faits" value={Object.keys(results).length} color={G.accentHot}/>
-              <Stat icon="📄" label="Fiches" value={fiches.length} color={G.accentCyan}/>
-              <Stat icon="🏆" label="Progression" value={`${student.progress||0}%`} color={G.gold}/>
+              <div onClick={()=>setTab('videos')} className="hov"><Stat icon="🎬" label="Vidéos" value={videos.length} color={G.accent}/></div>
+              <div onClick={()=>setTab('quiz')} className="hov"><Stat icon="🧠" label="Quiz faits" value={Object.keys(results).length} color={G.accentHot}/></div>
+              <div onClick={()=>setTab('fiches')} className="hov"><Stat icon="📄" label="Fiches" value={fiches.length} color={G.accentCyan}/></div>
+              <div onClick={()=>setTab('msgs')} className="hov"><Stat icon="💬" label="Messages" value={msgs.length} color={G.gold}/></div>
             </div>
             {videos.slice(0,2).map(v=>(
               <div key={v.id} onClick={()=>{setDriveItem(v);setTab('videos')}} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:13,display:'flex',alignItems:'center',gap:11,cursor:'pointer'}}>
@@ -575,9 +610,10 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
       <div style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'6px 2px 9px',flexShrink:0}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs')setUnreadTeacher(0)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
+            {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {tab===t.id&&<div style={{position:'absolute',bottom:-9,width:16,height:2,background:G.accent,borderRadius:2}}/>}
           </div>
         ))}
@@ -607,7 +643,19 @@ function TeacherApp({onLogout}) {
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
 
-  useEffect(()=>{ loadAll() },[])
+  useEffect(()=>{
+    loadAll()
+    // Realtime: new messages from students
+    const msgSub=supabase.channel('teacher-msgs')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'from_role=eq.student'},
+        payload=>{ setMsgs(prev=>{ const sid=payload.new.student_id; return {...prev,[sid]:[...(prev[sid]||[]),payload.new]} }) })
+      .subscribe()
+    // Realtime: new students
+    const stuSub=supabase.channel('teacher-students')
+      .on('postgres_changes',{event:'*',schema:'public',table:'students'},()=>loadAll())
+      .subscribe()
+    return ()=>{ msgSub.unsubscribe(); stuSub.unsubscribe() }
+  },[])
 
   const loadAll=async()=>{
     setLoading(true)
@@ -731,8 +779,11 @@ function TeacherApp({onLogout}) {
 
   const sendReply=async(sid,text,atts)=>{
     const msg={student_id:sid,from_role:'teacher',text,attachments:atts.map(a=>({name:a.name,type:a.type,size:a.size,url:a.url}))}
+    // Optimistic update: show immediately
+    const optimistic={...msg,id:'tmp-'+Date.now(),sent_at:new Date().toISOString()}
+    setMsgs(m=>({...m,[sid]:[...(m[sid]||[]),optimistic]}))
     const {data}=await supabase.from('messages').insert(msg).select().single()
-    if(data) setMsgs(m=>({...m,[sid]:[...(m[sid]||[]),data]}))
+    if(data) setMsgs(m=>({...m,[sid]:(m[sid]||[]).map(x=>x.id===optimistic.id?data:x)}))
   }
 
   const tog=(arr,id)=>arr.includes(id)?arr.filter(x=>x!==id):[...arr,id]
@@ -773,10 +824,10 @@ function TeacherApp({onLogout}) {
           <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:12}}>
             <div className="syne" style={{fontSize:18,fontWeight:800}}>Vue d'ensemble</div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              <Stat icon="👥" label="Élèves"       value={students.length} color={G.accent}/>
-              <Stat icon="🏫" label="Classes"      value={classes.length}  color={G.accentCyan}/>
-              <Stat icon="📈" label="Moy. prog."   value={`${avgProg}%`}  color={G.accentGreen}/>
-              <Stat icon="💬" label="Msgs non lus" value={totalUnread}    color={G.accentHot}/>
+              <div onClick={()=>setTab('students')} className="hov"><Stat icon="👥" label="Élèves" value={students.length} color={G.accent}/></div>
+              <div onClick={()=>setTab('students')} className="hov"><Stat icon="🏫" label="Classes" value={classes.length} color={G.accentCyan}/></div>
+              <div onClick={()=>setTab('content')} className="hov"><Stat icon="📈" label="Moy. prog." value={`${avgProg}%`} color={G.accentGreen}/></div>
+              <div onClick={()=>setTab('msgs')} className="hov"><Stat icon="💬" label="Msgs non lus" value={totalUnread} color={G.accentHot}/></div>
             </div>
             {classes.map(cl=>{
               const cls=students.filter(s=>s.class_id===cl.id)
