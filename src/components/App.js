@@ -117,15 +117,32 @@ function DriveViewer({url,title,onBack,accent=G.accent}) {
 }
 
 // ─── FILE ATTACHMENT ──────────────────────────────────────────────────────────
+// Upload file to Supabase Storage and return public URL
+async function uploadFile(file) {
+  const ext=file.name.split('.').pop()
+  const path=`attachments/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const {data,error}=await supabase.storage.from('talis-files').upload(path,file,{cacheControl:'3600',upsert:false})
+  if(error){ console.error('Upload error:',error); return null }
+  const {data:pub}=supabase.storage.from('talis-files').getPublicUrl(path)
+  return {name:file.name,size:file.size,type:file.type,url:pub.publicUrl,id:Date.now()+Math.random()}
+}
+
 function AttachBtn({onFiles}) {
   const ref=useRef()
+  const [uploading,setUploading]=useState(false)
   return (
     <>
-      <input ref={ref} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" multiple style={{display:'none'}} onChange={e=>{
-        onFiles(Array.from(e.target.files).map(f=>({name:f.name,size:f.size,type:f.type,url:URL.createObjectURL(f),id:Date.now()+Math.random()})))
+      <input ref={ref} type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" multiple style={{display:'none'}} onChange={async e=>{
+        setUploading(true)
+        const files=Array.from(e.target.files)
+        const uploaded=await Promise.all(files.map(f=>uploadFile(f)))
+        onFiles(uploaded.filter(Boolean))
         e.target.value=''
+        setUploading(false)
       }}/>
-      <button onClick={()=>ref.current.click()} style={{background:'none',border:`1px solid ${G.border}`,borderRadius:8,color:G.muted,cursor:'pointer',padding:'8px 10px',fontSize:18,display:'flex',alignItems:'center'}}>📎</button>
+      <button onClick={()=>ref.current.click()} disabled={uploading} style={{background:'none',border:`1px solid ${G.border}`,borderRadius:8,color:uploading?G.accentGreen:G.muted,cursor:'pointer',padding:'8px 10px',fontSize:18,display:'flex',alignItems:'center',position:'relative'}} title={uploading?'Envoi en cours…':'Joindre un fichier'}>
+        {uploading?<span style={{fontSize:12}}>⏳</span>:'📎'}
+      </button>
     </>
   )
 }
@@ -460,7 +477,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   }
 
   const sendMsg=async(text,atts)=>{
-    const msg={student_id:student.id,from_role:'student',text,attachments:atts.map(a=>({name:a.name,type:a.type,size:a.size,url:a.url}))}
+    const msg={student_id:student.id,from_role:'student',text,attachments:atts.map(({name,type,size,url})=>({name,type,size,url}))}
     const {data}=await supabase.from('messages').insert(msg).select().single()
     if(data) setMsgs(m=>[...m,data])
   }
@@ -781,7 +798,7 @@ function TeacherApp({onLogout}) {
   }
 
   const sendReply=async(sid,text,atts)=>{
-    const msg={student_id:sid,from_role:'teacher',text,attachments:atts.map(a=>({name:a.name,type:a.type,size:a.size,url:a.url}))}
+    const msg={student_id:sid,from_role:'teacher',text,attachments:atts.map(({name,type,size,url})=>({name,type,size,url}))}
     // Optimistic update: show immediately
     const optimistic={...msg,id:'tmp-'+Date.now(),sent_at:new Date().toISOString()}
     setMsgs(m=>({...m,[sid]:[...(m[sid]||[]),optimistic]}))
