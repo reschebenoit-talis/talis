@@ -717,6 +717,87 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   )
 }
 
+// ─── QUIZ EXCEL IMPORTER ─────────────────────────────────────────────────────
+function QuizExcelImporter({onImport, currentCount}) {
+  const ref=useRef()
+  const [preview,setPreview]=useState(null)
+  const [loading,setLoading]=useState(false)
+
+  const handleFile=async(e)=>{
+    const file=e.target.files[0]; if(!file) return
+    setLoading(true)
+    try {
+      const XLSX=await import('xlsx')
+      const ab=await file.arrayBuffer()
+      const wb=XLSX.read(ab)
+      const ws=wb.Sheets[wb.SheetNames[0]]
+      const data=XLSX.utils.sheet_to_json(ws,{defval:''})
+      const questions=[]
+      const errors=[]
+      data.forEach((row,i)=>{
+        const keys=Object.keys(row).map(k=>k.toLowerCase().trim())
+        const vals=Object.values(row)
+        const get=(...ns)=>{ for(const n of ns){ const idx=keys.findIndex(k=>k.includes(n)); if(idx!==-1) return String(vals[idx]||'').trim() } return '' }
+        const q=get('question','énoncé','enonce','q')
+        const a=get('choix a','choice a','a','réponse a','rep a')
+        const b=get('choix b','choice b','b','réponse b','rep b')
+        const c=get('choix c','choice c','c','réponse c','rep c')
+        const d=get('choix d','choice d','d','réponse d','rep d')
+        const ans=get('bonne réponse','bonne reponse','réponse','reponse','answer','correct','bonne','correcte').toUpperCase().trim()
+        if(!q){errors.push(`Ligne ${i+2} : question vide`);return}
+        if(!a||!b){errors.push(`Ligne ${i+2} : au moins 2 choix requis`);return}
+        const ansIdx={'A':0,'B':1,'C':2,'D':3}[ans]
+        if(ansIdx===undefined){errors.push(`Ligne ${i+2} : bonne réponse invalide (mettez A, B, C ou D)`);return}
+        questions.push({q,choices:[a,b,c||'',d||''].filter((_,i)=>i<2||(i===2&&c)||(i===3&&d)),answer:ansIdx})
+      })
+      if(errors.length>0) alert('⚠️ Erreurs :\n'+errors.join('\n'))
+      if(questions.length>0) setPreview(questions)
+    } catch(err){
+      alert('Erreur lecture : '+err.message)
+    }
+    setLoading(false)
+    e.target.value=''
+  }
+
+  if(preview) return (
+    <div style={{background:G.surface,borderRadius:10,padding:12}}>
+      <div style={{fontWeight:600,fontSize:12,color:G.accentGreen,marginBottom:8}}>✅ {preview.length} question(s) importée(s)</div>
+      <div style={{maxHeight:160,overflow:'auto',display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
+        {preview.map((q,i)=>(
+          <div key={i} style={{background:G.card,borderRadius:7,padding:'7px 10px'}}>
+            <div style={{fontSize:12,fontWeight:500,marginBottom:3}}>{q.q}</div>
+            <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+              {q.choices.map((c,ci)=>(
+                <span key={ci} style={{fontSize:10,padding:'2px 7px',borderRadius:5,background:ci===q.answer?G.accentGreen+'33':G.border,color:ci===q.answer?G.accentGreen:G.muted,fontWeight:ci===q.answer?700:400}}>
+                  {['A','B','C','D'][ci]}: {c}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:7}}>
+        <Btn sm v="green" onClick={()=>{onImport(preview);setPreview(null)}}>Utiliser ces questions</Btn>
+        <Btn sm v="ghost" onClick={()=>setPreview(null)}>Annuler</Btn>
+      </div>
+    </div>
+  )
+
+  return (
+    <div>
+      <input ref={ref} type="file" accept=".xlsx,.xls,.csv" style={{display:'none'}} onChange={handleFile}/>
+      <div style={{border:`1px dashed ${G.gold}55`,borderRadius:9,padding:'10px 12px',display:'flex',alignItems:'center',gap:10,background:G.gold+'08'}}>
+        <div style={{fontSize:20}}>📊</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,fontWeight:600,color:G.gold}}>Importer depuis Excel</div>
+          <div style={{fontSize:10,color:G.muted}}>Colonnes : Question, Choix A, Choix B, Choix C, Choix D, Bonne réponse (A/B/C/D)</div>
+        </div>
+        <Btn sm v="ghost" onClick={()=>ref.current.click()} loading={loading}>Importer</Btn>
+      </div>
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TEACHER APP
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1171,9 +1252,16 @@ function TeacherApp({onLogout}) {
                 </div>
                 <div style={{fontSize:12,color:G.muted}}>Classes :</div>
                 <ClsCbs value={quiz.classIds} onChange={v=>setQuiz({...quiz,classIds:v})}/>
+
+                {/* Import Excel */}
+                <QuizExcelImporter onImport={qs=>setQuiz({...quiz,questions:qs})} currentCount={quiz.questions.filter(q=>q.q).length}/>
+
                 {quiz.questions.map((q,qi)=>(
                   <div key={qi} style={{background:G.surface,borderRadius:10,padding:12}}>
-                    <div style={{color:G.muted,fontSize:11,marginBottom:6}}>Question {qi+1}</div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+                      <div style={{color:G.muted,fontSize:11}}>Question {qi+1}</div>
+                      {quiz.questions.length>1&&<button onClick={()=>setQuiz({...quiz,questions:quiz.questions.filter((_,i)=>i!==qi)})} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:12}}>🗑</button>}
+                    </div>
                     <Inp placeholder="Énoncé" value={q.q} onChange={e=>{const qs=[...quiz.questions];qs[qi].q=e.target.value;setQuiz({...quiz,questions:qs})}}/>
                     <div style={{marginTop:7,display:'flex',flexDirection:'column',gap:5}}>
                       {q.choices.map((c,ci)=>(
