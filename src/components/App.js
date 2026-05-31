@@ -42,6 +42,12 @@ const toEmbed = url => {
 }
 const ts = () => new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})
 const fileIcon = t => t?.includes('pdf')?'📄':t?.includes('image')?'🖼️':t?.includes('word')||t?.includes('document')?'📝':t?.includes('sheet')||t?.includes('excel')?'📊':'📎'
+// Supabase JSONB can come back as a string — always parse safely
+const parseAtts = (atts) => {
+  if(!atts) return []
+  if(typeof atts==='string'){ try{ return JSON.parse(atts) }catch{ return [] } }
+  return Array.isArray(atts)?atts:[]
+}
 const fmtSize = b => b>1048576?`${(b/1048576).toFixed(1)} Mo`:`${Math.round(b/1024)} Ko`
 const CLASS_COLORS = [G.accent,G.accentHot,G.accentGreen,G.accentCyan,G.gold,'#A78BFA','#FB923C','#34D399']
 
@@ -163,7 +169,7 @@ function AttachPreview({files,onRemove}) {
 }
 
 // ─── MESSAGE THREAD ───────────────────────────────────────────────────────────
-function MsgThread({msgs,myRole,onSend,loading,onView}) {
+function MsgThread({msgs,myRole,onSend,onDelete,loading,onView}) {
   const [text,setText]=useState('')
   const [atts,setAtts]=useState([])
   const [sending,setSending]=useState(false)
@@ -190,9 +196,9 @@ function MsgThread({msgs,myRole,onSend,loading,onView}) {
                 <div style={{maxWidth:'78%'}}>
                   <div style={{background:mine?`linear-gradient(135deg,${G.accent},#8B7FFF)`:G.surface,borderRadius:mine?'14px 14px 4px 14px':'14px 14px 14px 4px',padding:'9px 13px',fontSize:13,lineHeight:1.5}}>
                     {m.text&&<div>{m.text}</div>}
-                    {m.attachments?.length>0&&(
+                    {parseAtts(m.attachments).length>0&&(
                       <div style={{marginTop:m.text?7:0,display:'flex',flexDirection:'column',gap:4}}>
-                        {m.attachments.map((a,ai)=>(
+                        {parseAtts(m.attachments).map((a,ai)=>(
                           <a key={ai} href={a.url} download={a.name} target="_blank" rel="noreferrer" style={{background:'rgba(255,255,255,.15)',borderRadius:7,padding:'6px 10px',fontSize:12,color:'inherit',textDecoration:'none',display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
                             <span>{fileIcon(a.type)}</span>
                             <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>
@@ -201,7 +207,12 @@ function MsgThread({msgs,myRole,onSend,loading,onView}) {
                         ))}
                       </div>
                     )}
-                    <div style={{fontSize:10,color:'rgba(255,255,255,.4)',marginTop:3,textAlign:'right'}}>{m.sent_at?new Date(m.sent_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):''}</div>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:3,gap:8}}>
+                      <div style={{fontSize:10,color:'rgba(255,255,255,.4)'}}>{m.sent_at?new Date(m.sent_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):''}</div>
+                      {mine&&onDelete&&m.id&&!m.id.toString().startsWith('tmp-')&&(
+                        <button onClick={()=>{ if(window.confirm('Supprimer ce message ?')) onDelete(m.id) }} style={{background:'none',border:'none',color:'rgba(255,255,255,.3)',cursor:'pointer',fontSize:11,padding:'0 2px',lineHeight:1}} title="Supprimer">🗑</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -482,6 +493,11 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     if(data) setMsgs(m=>[...m,data])
   }
 
+  const deleteMsg=async(msgId)=>{
+    await supabase.from('messages').delete().eq('id',msgId)
+    setMsgs(m=>m.filter(x=>x.id!==msgId))
+  }
+
   const savePwd=async(oldPwd,newPwd)=>{
     if(!student.must_change_password&&student.password_hash!==oldPwd) return false
     await supabase.from('students').update({password_hash:newPwd,must_change_password:false}).eq('id',student.id)
@@ -622,7 +638,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         {tab==='msgs'&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
             <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:12}}>💬 Messages</div>
-            <MsgThread msgs={msgs} myRole="student" onSend={sendMsg} loading={msgLoading}/>
+            <MsgThread msgs={msgs} myRole="student" onSend={sendMsg} onDelete={deleteMsg} loading={msgLoading}/>
           </div>
         )}
       </div>
@@ -797,6 +813,11 @@ function TeacherApp({onLogout}) {
     setSelStudent(null)
   }
 
+  const deleteMsg=async(sid,msgId)=>{
+    await supabase.from('messages').delete().eq('id',msgId)
+    setMsgs(m=>({...m,[sid]:(m[sid]||[]).filter(x=>x.id!==msgId)}))
+  }
+
   const sendReply=async(sid,text,atts)=>{
     const msg={student_id:sid,from_role:'teacher',text,attachments:atts.map(({name,type,size,url})=>({name,type,size,url}))}
     // Optimistic update: show immediately
@@ -942,7 +963,7 @@ function TeacherApp({onLogout}) {
                   <Av name={`${selStudent.first_name} ${selStudent.last_name}`} size={30}/>
                   <div className="syne" style={{fontWeight:700,fontSize:14}}>{selStudent.first_name} {selStudent.last_name}</div>
                 </div>
-                <MsgThread msgs={msgs[selStudent.id]||[]} myRole="teacher" onSend={(t,a)=>sendReply(selStudent.id,t,a)} onView={()=>setReadMsgs(r=>({...r,[selStudent.id]:new Date().toISOString()}))}/>
+                <MsgThread msgs={msgs[selStudent.id]||[]} myRole="teacher" onSend={(t,a)=>sendReply(selStudent.id,t,a)} onDelete={(id)=>deleteMsg(selStudent.id,id)} onView={()=>setReadMsgs(r=>({...r,[selStudent.id]:new Date().toISOString()}))}/>
               </div>
             ):(
               <>
@@ -963,7 +984,7 @@ function TeacherApp({onLogout}) {
                       <Av name={`${s.first_name} ${s.last_name}`} size={38}/>
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600,fontSize:13}}>{s.first_name} {s.last_name}</div>
-                        <div style={{fontSize:12,color:G.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{last?last.text||'📎 Pièce jointe':'—'}</div>
+                        <div style={{fontSize:12,color:G.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{last?last.text||(parseAtts(last.attachments).length>0?`📎 ${parseAtts(last.attachments)[0].name}`:'—'):'—'}</div>
                       </div>
                       {unread>0&&<div style={{width:19,height:19,borderRadius:'50%',background:G.accentHot,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>{unread}</div>}
                     </div>
@@ -1147,7 +1168,7 @@ function LoginScreen({onLogin}) {
       <div style={{zIndex:1,width:'100%',maxWidth:360}} className="fade-up">
         <div style={{textAlign:'center',marginBottom:36}}>
           <div style={{fontSize:52,marginBottom:10}}>🎓</div>
-          <div className="syne" style={{fontSize:28,fontWeight:800,letterSpacing:-1}}>Talis</div>
+          <div className="syne" style={{fontSize:28,fontaWeight:800,letterSpacing:-1}}>Talis</div>
           <div style={{color:G.muted,fontSize:14,marginTop:3}}>Benoit Resche</div>
         </div>
         <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:24,display:'flex',flexDirection:'column',gap:11}}>
