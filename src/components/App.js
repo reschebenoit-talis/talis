@@ -1071,22 +1071,31 @@ function TeacherApp({onLogout}) {
                   <div key={type} style={{marginBottom:15}}>
                     <div className="syne" style={{fontWeight:700,marginBottom:7,color,fontSize:13}}>{label} ({items.length})</div>
                     {!items.length&&<div style={{color:G.muted,fontSize:12}}>Aucun contenu.</div>}
-                    {items.map(item=>(
-                      <div key={item.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:11,padding:'10px 13px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
-                        <div style={{fontSize:18}}>{type==='quiz'?'🧠':type==='video'?item.emoji:'📄'}</div>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:500}}>{item.title}</div>
-                          <div style={{fontSize:10,color:G.muted,marginTop:2}}>
-                            {(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')}
-                            {type!=='quiz'&&<span style={{marginLeft:5,color:item.drive_url?G.accentGreen:G.accentHot+'bb'}}>{item.drive_url?'✅':'⚠️ pas de lien'}</span>}
+                    {items.map(item=>{
+                      const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
+                      return (
+                      <div key={item.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:11,padding:'10px 13px',marginBottom:6}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{fontSize:18,flexShrink:0}}>{type==='quiz'?'🧠':type==='video'?item.emoji:'📄'}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
+                            {type!=='quiz'&&<div style={{fontSize:10,color:item.drive_url?G.accentGreen:G.accentHot,marginTop:2}}>{item.drive_url?'✅ Lien Drive':'⚠️ Pas de lien Drive'}</div>}
+                          </div>
+                          <div style={{display:'flex',gap:5,flexShrink:0}}>
+                            {type!=='quiz'&&item.drive_url&&<button onClick={()=>setDrivePreview(item)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:13}}>👁</button>}
+                            <button onClick={()=>deleteContent(type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:13}}>🗑</button>
                           </div>
                         </div>
-                        <div style={{display:'flex',gap:5}}>
-                          {type!=='quiz'&&item.drive_url&&<button onClick={()=>setDrivePreview(item)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:13}}>👁</button>}
-                          <button onClick={()=>deleteContent(type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:13}}>🗑</button>
-                        </div>
+                        {itemClasses.length>0&&(
+                          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:7}}>
+                            {itemClasses.map(cl=>(
+                              <span key={cl.id} style={{background:cl.color+'22',color:cl.color,border:`1px solid ${cl.color}44`,borderRadius:5,padding:'2px 7px',fontSize:10,fontWeight:600}}>{cl.name}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )})}
+
                   </div>
                 ))}
             </>
