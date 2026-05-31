@@ -176,9 +176,10 @@ function MsgThread({msgs,myRole,onSend,loading,onView}) {
                     {m.attachments?.length>0&&(
                       <div style={{marginTop:m.text?7:0,display:'flex',flexDirection:'column',gap:4}}>
                         {m.attachments.map((a,ai)=>(
-                          <a key={ai} href={a.url} target="_blank" rel="noreferrer" style={{background:'rgba(255,255,255,.12)',borderRadius:7,padding:'4px 9px',fontSize:12,color:'inherit',textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
+                          <a key={ai} href={a.url} download={a.name} target="_blank" rel="noreferrer" style={{background:'rgba(255,255,255,.15)',borderRadius:7,padding:'6px 10px',fontSize:12,color:'inherit',textDecoration:'none',display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
                             <span>{fileIcon(a.type)}</span>
                             <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{a.name}</span>
+                            <span style={{opacity:.6,fontSize:10,flexShrink:0}}>⬇</span>
                           </a>
                         ))}
                       </div>
@@ -502,7 +503,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
               <div onClick={()=>setTab('videos')} className="hov"><Stat icon="🎬" label="Vidéos" value={videos.length} color={G.accent}/></div>
               <div onClick={()=>setTab('quiz')} className="hov"><Stat icon="🧠" label="Quiz faits" value={Object.keys(results).length} color={G.accentHot}/></div>
               <div onClick={()=>setTab('fiches')} className="hov"><Stat icon="📄" label="Fiches" value={fiches.length} color={G.accentCyan}/></div>
-              <div onClick={()=>setTab('msgs')} className="hov"><Stat icon="💬" label="Messages" value={msgs.length} color={G.gold}/></div>
+              <div onClick={()=>{setTab('msgs');setUnreadTeacher(0)}} className="hov"><Stat icon="💬" label="Non lus" value={unreadTeacher} color={G.gold}/></div>
             </div>
             {videos.slice(0,2).map(v=>(
               <div key={v.id} onClick={()=>{setDriveItem(v);setTab('videos')}} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:13,display:'flex',alignItems:'center',gap:11,cursor:'pointer'}}>
