@@ -12,8 +12,9 @@ const G = {
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
-  html,body,#__next{height:100%;}
-  body{background:${G.bg};color:${G.text};font-family:'DM Sans',sans-serif;min-height:100vh;}
+  html,body{height:100%;height:100dvh;overflow:hidden;background:${G.bg};}
+  #__next{height:100%;height:100dvh;display:flex;flex-direction:column;}
+  body{color:${G.text};font-family:'DM Sans',sans-serif;overscroll-behavior:none;-webkit-overflow-scrolling:touch;}
   ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:${G.surface}}
   ::-webkit-scrollbar-thumb{background:${G.accent};border-radius:4px}
   .syne{font-family:'Syne',sans-serif;}
@@ -23,6 +24,10 @@ const css = `
   .hov{transition:transform .16s,box-shadow .16s;cursor:pointer}
   .hov:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(108,99,255,.2)}
   input,textarea,select{font-family:'DM Sans',sans-serif;}
+  /* True app layout: no bounce, no address bar scroll */
+  .app-root{position:fixed;inset:0;display:flex;flex-direction:column;background:${G.bg};overflow:hidden;}
+  .app-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  .app-nav{flex-shrink:0;}
 `
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
@@ -525,7 +530,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100%',background:G.bg}}>
+    <div className="app-root">
       {(showPwd||showPwdOpt)&&<ChangePwd forced={showPwd} onSave={savePwd} onCancel={()=>setShowPwdOpt(false)}/>}
 
       <div style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:9,flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
@@ -538,7 +543,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
       </div>
 
-      <div style={{flex:1,overflow:'auto',padding:16}}>
+      <div className="app-scroll" style={{padding:16}}>
 
         {tab==='home'&&!driveItem&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:13}}>
@@ -689,6 +694,7 @@ function TeacherApp({onLogout}) {
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
   const [readMsgs,setReadMsgs]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_read_msgs')||'{}') }catch{ return {} } })
+  const sessionStart=useState(()=>new Date().toISOString())[0]
 
   useEffect(()=>{
     loadAll()
@@ -856,7 +862,8 @@ function TeacherApp({onLogout}) {
   const filtered=selClass==='all'?students:students.filter(s=>s.class_id===selClass)
   const avgProg=students.length?Math.round(students.reduce((a,s)=>a+(s.progress||0),0)/students.length):0
   const countUnread=(sid)=>{
-    const lastRead=readMsgs[sid]||0
+    // If never opened this conversation, mark all existing as read (only NEW messages after login count)
+    const lastRead=readMsgs[sid]||sessionStart
     return (msgs[sid]||[]).filter(m=>m.from_role==='student'&&new Date(m.sent_at)>new Date(lastRead)).length
   }
   const totalUnread=students.reduce((a,s)=>a+countUnread(s.id),0)
@@ -865,7 +872,7 @@ function TeacherApp({onLogout}) {
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',background:G.bg}}><Spinner/></div>
 
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100%',background:G.bg}}>
+    <div className="app-root">
       {drivePreview&&<DriveViewer url={drivePreview.drive_url} title={drivePreview.title} onBack={()=>setDrivePreview(null)} accent={G.accentHot}/>}
       {showImport&&<ExcelImporter classes={classes} onImport={handleImport} onClose={()=>{setShowImport(false);loadAll()}}/>}
 
@@ -878,7 +885,7 @@ function TeacherApp({onLogout}) {
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
       </div>
 
-      <div style={{flex:1,overflow:'auto',padding:16}}>
+      <div className="app-scroll" style={{padding:16}}>
 
         {/* DASHBOARD */}
         {tab==='dashboard'&&(
@@ -1176,7 +1183,7 @@ function LoginScreen({onLogin}) {
   }
 
   return (
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',background:G.bg,padding:20,position:'relative',overflow:'hidden'}}>
+    <div style={{position:'fixed',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:G.bg,padding:20,overflow:'auto'}}>
       <div style={{position:'absolute',width:400,height:400,borderRadius:'50%',background:`radial-gradient(circle,${G.accent}18,transparent)`,top:-120,right:-100}}/>
       <div style={{position:'absolute',width:300,height:300,borderRadius:'50%',background:`radial-gradient(circle,${G.accentHot}18,transparent)`,bottom:0,left:-80}}/>
       <div style={{zIndex:1,width:'100%',maxWidth:360}} className="fade-up">
@@ -1201,27 +1208,19 @@ export default function App() {
   const [session,setSession]=useState(null)
 
   return (
-    <>
+    <div className="app-root">
       <style>{css}</style>
       {!session?(
         <LoginScreen onLogin={setSession}/>
       ):session.role==='teacher'?(
-        <div style={{minHeight:'100vh',background:G.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{width:'100%',maxWidth:480,height:'100vh',display:'flex',flexDirection:'column'}}>
-            <TeacherApp onLogout={()=>setSession(null)}/>
-          </div>
-        </div>
+        <TeacherApp onLogout={()=>setSession(null)}/>
       ):(
-        <div style={{minHeight:'100vh',background:G.bg,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          <div style={{width:'100%',maxWidth:480,height:'100vh',display:'flex',flexDirection:'column'}}>
-            <StudentApp
+        <StudentApp
               student={session.student}
               onLogout={()=>setSession(null)}
               onPwdSaved={newPwd=>setSession(s=>({...s,student:{...s.student,password_hash:newPwd,must_change_password:false}}))}
             />
-          </div>
-        </div>
       )}
-    </>
+    </div>
   )
 }
