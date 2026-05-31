@@ -528,10 +528,10 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     <div style={{display:'flex',flexDirection:'column',height:'100%',background:G.bg}}>
       {(showPwd||showPwdOpt)&&<ChangePwd forced={showPwd} onSave={savePwd} onCancel={()=>setShowPwdOpt(false)}/>}
 
-      <div style={{padding:'16px 16px 0',display:'flex',alignItems:'center',gap:9,flexShrink:0}}>
-        <Av name={fullName} size={36}/>
+      <div style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:9,flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
+        <img src="/logo.jpg" alt="Talis" style={{height:32,width:'auto',borderRadius:4,flexShrink:0}}/>
         <div style={{flex:1}}>
-          <div className="syne" style={{fontWeight:700,fontSize:14}}>Bonjour, {student.first_name} 👋</div>
+          <div className="syne" style={{fontWeight:700,fontSize:13}}>Bonjour, {student.first_name} 👋</div>
           {myClass&&<Bdg color={myClass.color} sm>{myClass.name}</Bdg>}
         </div>
         <button onClick={()=>setShowPwdOpt(true)} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Modifier mot de passe">🔒</button>
@@ -869,13 +869,13 @@ function TeacherApp({onLogout}) {
       {drivePreview&&<DriveViewer url={drivePreview.drive_url} title={drivePreview.title} onBack={()=>setDrivePreview(null)} accent={G.accentHot}/>}
       {showImport&&<ExcelImporter classes={classes} onImport={handleImport} onClose={()=>{setShowImport(false);loadAll()}}/>}
 
-      <div style={{padding:'16px 16px 0',display:'flex',alignItems:'center',gap:9,flexShrink:0}}>
-        <div style={{width:36,height:36,borderRadius:11,background:`linear-gradient(135deg,${G.accentHot},#FF8FA3)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>👨‍🏫</div>
+      <div style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:9,flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
+        <img src="/logo.jpg" alt="Talis" style={{height:32,width:'auto',borderRadius:4,flexShrink:0}}/>
         <div style={{flex:1}}>
-          <div className="syne" style={{fontWeight:700,fontSize:14}}>Ben 👨‍🏫</div>
+          <div className="syne" style={{fontWeight:700,fontSize:13}}>Ben · Professeur</div>
           <div style={{fontSize:11,color:G.muted}}>{students.length} élèves · {classes.length} classes</div>
         </div>
-        <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}}>🚪</button>
+        <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
       </div>
 
       <div style={{flex:1,overflow:'auto',padding:16}}>
@@ -1181,9 +1181,8 @@ function LoginScreen({onLogin}) {
       <div style={{position:'absolute',width:300,height:300,borderRadius:'50%',background:`radial-gradient(circle,${G.accentHot}18,transparent)`,bottom:0,left:-80}}/>
       <div style={{zIndex:1,width:'100%',maxWidth:360}} className="fade-up">
         <div style={{textAlign:'center',marginBottom:36}}>
-          <div style={{fontSize:52,marginBottom:10}}>🎓</div>
-          <div className="syne" style={{fontSize:28,fontWeight:800,letterSpacing:-1}}>Talis</div>
-          <div style={{color:G.muted,fontSize:14,marginTop:3}}>Benoit Resche</div>
+          <img src="/logo.jpg" alt="Talis Business School" style={{width:160,height:'auto',marginBottom:16,borderRadius:8}}/>
+          <div style={{color:G.muted,fontSize:13,marginTop:3}}>Benoit Resche</div>
         </div>
         <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:24,display:'flex',flexDirection:'column',gap:11}}>
           <Inp placeholder="Email" value={email} onChange={e=>{setEmail(e.target.value);setErr('')}}/>
