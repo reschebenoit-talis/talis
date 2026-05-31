@@ -12,22 +12,66 @@ const G = {
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
   *{box-sizing:border-box;margin:0;padding:0;}
-  html,body{height:100%;height:100dvh;overflow:hidden;background:${G.bg};}
-  #__next{height:100%;height:100dvh;display:flex;flex-direction:column;}
-  body{color:${G.text};font-family:'DM Sans',sans-serif;overscroll-behavior:none;-webkit-overflow-scrolling:touch;}
-  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:${G.surface}}
-  ::-webkit-scrollbar-thumb{background:${G.accent};border-radius:4px}
+  html{
+    height:100%; height:100dvh;
+    overflow:hidden;
+    background:${G.bg};
+    /* Prevent iOS rubber-band scroll */
+    overscroll-behavior:none;
+  }
+  body{
+    height:100%; height:100dvh;
+    overflow:hidden;
+    color:${G.text};
+    font-family:'DM Sans',sans-serif;
+    overscroll-behavior:none;
+    -webkit-tap-highlight-color:transparent;
+    -webkit-text-size-adjust:100%;
+    background:${G.bg};
+  }
+  #__next{
+    height:100%; height:100dvh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  /* Safe area for notch/home-bar on iPhone & Android */
+  .app-root{
+    position:fixed;
+    top:0; left:0; right:0; bottom:0;
+    /* Respect notch top and home-indicator bottom */
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+    display:flex;
+    flex-direction:column;
+    background:${G.bg};
+    overflow:hidden;
+  }
+  /* Scrollable content zone - fills remaining space between header and nav */
+  .app-scroll{
+    flex:1 1 0%;
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  /* Nav always visible at bottom */
+  .app-nav{
+    flex:0 0 auto;
+  }
+  ::-webkit-scrollbar{width:3px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:${G.accent}55;border-radius:4px}
   .syne{font-family:'Syne',sans-serif;}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .fade-up{animation:fadeUp .32s ease forwards}
-  .hov{transition:transform .16s,box-shadow .16s;cursor:pointer}
-  .hov:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(108,99,255,.2)}
+  .fade-up{animation:fadeUp .28s ease forwards}
+  .hov{transition:transform .14s,box-shadow .14s;cursor:pointer}
+  .hov:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(108,99,255,.22)}
   input,textarea,select{font-family:'DM Sans',sans-serif;}
-  /* True app layout: no bounce, no address bar scroll */
-  .app-root{position:fixed;inset:0;display:flex;flex-direction:column;background:${G.bg};overflow:hidden;}
-  .app-scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
-  .app-nav{flex-shrink:0;}
 `
 
 // ─── UTILS ───────────────────────────────────────────────────────────────────
@@ -659,7 +703,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         )}
       </div>
 
-      <div style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'6px 2px 9px',flexShrink:0}}>
+      <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
           <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
@@ -1143,7 +1187,7 @@ function TeacherApp({onLogout}) {
         )}
       </div>
 
-      <div style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'6px 2px 9px',flexShrink:0}}>
+      <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
           <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
@@ -1183,7 +1227,7 @@ function LoginScreen({onLogin}) {
   }
 
   return (
-    <div style={{position:'fixed',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:G.bg,padding:20,overflow:'auto'}}>
+    <div style={{position:'fixed',inset:0,display:'flex',alignItems:'center',justifyContent:'center',background:G.bg,padding:'max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left))',overflow:'auto'}}>
       <div style={{position:'absolute',width:400,height:400,borderRadius:'50%',background:`radial-gradient(circle,${G.accent}18,transparent)`,top:-120,right:-100}}/>
       <div style={{position:'absolute',width:300,height:300,borderRadius:'50%',background:`radial-gradient(circle,${G.accentHot}18,transparent)`,bottom:0,left:-80}}/>
       <div style={{zIndex:1,width:'100%',maxWidth:360}} className="fade-up">
