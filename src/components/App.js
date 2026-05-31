@@ -146,12 +146,13 @@ function AttachPreview({files,onRemove}) {
 }
 
 // ─── MESSAGE THREAD ───────────────────────────────────────────────────────────
-function MsgThread({msgs,myRole,onSend,loading}) {
+function MsgThread({msgs,myRole,onSend,loading,onView}) {
   const [text,setText]=useState('')
   const [atts,setAtts]=useState([])
   const [sending,setSending]=useState(false)
   const bottomRef=useRef()
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:'smooth'}) },[msgs])
+  useEffect(()=>{ if(onView) onView() },[msgs.length])
 
   const send=async()=>{
     if(!text.trim()&&!atts.length) return
@@ -642,6 +643,7 @@ function TeacherApp({onLogout}) {
   const [quiz,setQuiz]=useState({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
+  const [readMsgs,setReadMsgs]=useState({}) // {studentId: lastReadTimestamp}
 
   useEffect(()=>{
     loadAll()
@@ -799,7 +801,11 @@ function TeacherApp({onLogout}) {
 
   const filtered=selClass==='all'?students:students.filter(s=>s.class_id===selClass)
   const avgProg=students.length?Math.round(students.reduce((a,s)=>a+(s.progress||0),0)/students.length):0
-  const totalUnread=students.reduce((a,s)=>(msgs[s.id]||[]).filter(m=>m.from_role==='student').length+a,0)
+  const countUnread=(sid)=>{
+    const lastRead=readMsgs[sid]||0
+    return (msgs[sid]||[]).filter(m=>m.from_role==='student'&&new Date(m.sent_at)>new Date(lastRead)).length
+  }
+  const totalUnread=students.reduce((a,s)=>a+countUnread(s.id),0)
   const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'add',icon:'➕',label:'Ajouter'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',background:G.bg}}><Spinner/></div>
@@ -811,7 +817,7 @@ function TeacherApp({onLogout}) {
       <div style={{padding:'16px 16px 0',display:'flex',alignItems:'center',gap:9,flexShrink:0}}>
         <div style={{width:36,height:36,borderRadius:11,background:`linear-gradient(135deg,${G.accentHot},#FF8FA3)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16}}>👨‍🏫</div>
         <div style={{flex:1}}>
-          <div className="syne" style={{fontWeight:700,fontSize:14}}>Benoit Resche</div>
+          <div className="syne" style={{fontWeight:700,fontSize:14}}>Ben 👨‍🏫</div>
           <div style={{fontSize:11,color:G.muted}}>{students.length} élèves · {classes.length} classes</div>
         </div>
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}}>🚪</button>
@@ -918,21 +924,28 @@ function TeacherApp({onLogout}) {
                   <Av name={`${selStudent.first_name} ${selStudent.last_name}`} size={30}/>
                   <div className="syne" style={{fontWeight:700,fontSize:14}}>{selStudent.first_name} {selStudent.last_name}</div>
                 </div>
-                <MsgThread msgs={msgs[selStudent.id]||[]} myRole="teacher" onSend={(t,a)=>sendReply(selStudent.id,t,a)}/>
+                <MsgThread msgs={msgs[selStudent.id]||[]} myRole="teacher" onSend={(t,a)=>sendReply(selStudent.id,t,a)} onView={()=>setReadMsgs(r=>({...r,[selStudent.id]:new Date().toISOString()}))}/>
               </div>
             ):(
               <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:12}}>💬 Messages</div>
-                {students.map(s=>{
+                {students.filter(s=>(msgs[s.id]||[]).length>0).length===0&&(
+                  <div style={{color:G.muted,fontSize:13,textAlign:'center',marginTop:32}}>Aucun message pour le moment.</div>
+                )}
+                {students.filter(s=>(msgs[s.id]||[]).length>0).sort((a,b)=>{
+                  const la=msgs[a.id]||[]; const lb=msgs[b.id]||[]
+                  const ta=la[la.length-1]?.sent_at||0; const tb=lb[lb.length-1]?.sent_at||0
+                  return new Date(tb)-new Date(ta)
+                }).map(s=>{
                   const sm=msgs[s.id]||[]
-                  const unread=sm.filter(m=>m.from_role==='student').length
+                  const unread=countUnread(s.id)
                   const last=sm[sm.length-1]
                   return (
                     <div key={s.id} onClick={()=>setSelStudent(s)} className="hov" style={{background:G.card,border:`1px solid ${unread?G.accentHot+'44':G.border}`,borderRadius:12,padding:12,marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
                       <Av name={`${s.first_name} ${s.last_name}`} size={38}/>
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600,fontSize:13}}>{s.first_name} {s.last_name}</div>
-                        <div style={{fontSize:12,color:G.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{last?last.text||'📎 Pièce jointe':'Aucun message'}</div>
+                        <div style={{fontSize:12,color:G.muted,marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{last?last.text||'📎 Pièce jointe':'—'}</div>
                       </div>
                       {unread>0&&<div style={{width:19,height:19,borderRadius:'50%',background:G.accentHot,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,flexShrink:0}}>{unread}</div>}
                     </div>
@@ -1095,7 +1108,7 @@ function LoginScreen({onLogin}) {
     if(!email||!pwd) return
     setLoading(true); setErr('')
     // Teacher login
-    if(email==='prof@talis.fr'&&pwd==='prof123'){
+    if((email==='ben'||email==='Ben'||email==='ben@talis.fr')&&pwd==='1234'){
       onLogin({role:'teacher'}); return
     }
     // Student login
