@@ -105,17 +105,24 @@ function DriveViewer({url,title,onBack,accent=G.accent}) {
   const [loading,setLoading]=useState(true)
   const embed=toEmbed(url)
   return (
-    <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-      <button onClick={onBack} style={{background:'none',border:'none',color:accent,cursor:'pointer',marginBottom:8,fontSize:14,display:'flex',alignItems:'center',gap:4,flexShrink:0}}>← Retour</button>
-      <div style={{fontWeight:600,fontSize:14,marginBottom:8,flexShrink:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+    <div style={{position:'fixed',inset:0,zIndex:50,background:G.bg,display:'flex',flexDirection:'column'}}>
+      {/* Header bar */}
+      <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:`1px solid ${G.border}`,flexShrink:0,background:G.surface}}>
+        <button onClick={onBack} style={{background:'none',border:'none',color:accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4,flexShrink:0}}>← Retour</button>
+        <div style={{fontWeight:600,fontSize:14,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:G.text}}>{title}</div>
+      </div>
+      {/* Content */}
       {embed?(
-        <div style={{flex:1,borderRadius:12,overflow:'hidden',background:G.card,border:`1px solid ${G.border}`,position:'relative',minHeight:320}}>
-          {loading&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:G.muted,fontSize:13}}><div style={{width:26,height:26,border:`3px solid ${G.border}`,borderTop:`3px solid ${accent}`,borderRadius:'50%',animation:'spin 1s linear infinite'}}/>Chargement…</div>}
-          <iframe src={embed} style={{width:'100%',height:'100%',border:'none',opacity:loading?0:1,transition:'opacity .3s'}} onLoad={()=>setLoading(false)} allow="autoplay" title={title}/>
+        <div style={{flex:1,position:'relative',overflow:'hidden'}}>
+          {loading&&<div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:10,color:G.muted,fontSize:13,background:G.bg}}>
+            <div style={{width:28,height:28,border:`3px solid ${G.border}`,borderTop:`3px solid ${accent}`,borderRadius:'50%',animation:'spin 1s linear infinite'}}/>Chargement…
+          </div>}
+          <iframe src={embed} style={{width:'100%',height:'100%',border:'none',opacity:loading?0:1,transition:'opacity .3s',display:'block'}} onLoad={()=>setLoading(false)} allow="autoplay" title={title}/>
         </div>
       ):(
-        <div style={{flex:1,background:G.card,borderRadius:12,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:10,color:G.muted,fontSize:13,textAlign:'center',padding:24}}>
-          <div style={{fontSize:40}}>🔗</div>Aucun fichier Drive associé.
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:12,color:G.muted,fontSize:13,textAlign:'center',padding:32}}>
+          <div style={{fontSize:48}}>🔗</div>
+          <div>Aucun fichier Google Drive associé à cette ressource.</div>
         </div>
       )}
     </div>
@@ -1168,7 +1175,7 @@ function LoginScreen({onLogin}) {
       <div style={{zIndex:1,width:'100%',maxWidth:360}} className="fade-up">
         <div style={{textAlign:'center',marginBottom:36}}>
           <div style={{fontSize:52,marginBottom:10}}>🎓</div>
-          <div className="syne" style={{fontSize:28,fontaWeight:800,letterSpacing:-1}}>Talis</div>
+          <div className="syne" style={{fontSize:28,fontWeight:800,letterSpacing:-1}}>Talis</div>
           <div style={{color:G.muted,fontSize:14,marginTop:3}}>Benoit Resche</div>
         </div>
         <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:24,display:'flex',flexDirection:'column',gap:11}}>
