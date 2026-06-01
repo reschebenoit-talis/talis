@@ -1158,7 +1158,7 @@ function TeacherApp({onLogout}) {
                     <div style={{flex:1}}>
                       <div style={{display:'flex',alignItems:'center',gap:6}}>
                         <div style={{fontWeight:600,fontSize:13}}>{s.first_name} {s.last_name}</div>
-                        {presence[s.id]?.is_online&&<span style={{width:7,height:7,borderRadius:'50%',background:G.accentGreen,display:'inline-block',flexShrink:0}} title="En ligne"/>}
+                        <span style={{fontSize:10,color:presence[s.id]?.is_online?G.accentGreen:G.muted}}>{presence[s.id]?.is_online?'● En ligne':'○ Hors ligne'}</span>
                       </div>
                       <div style={{display:'flex',gap:5,marginTop:2,marginBottom:5,flexWrap:'wrap'}}>
                         {s.classes&&<Bdg color={s.classes.color} sm>{s.classes.name}</Bdg>}
