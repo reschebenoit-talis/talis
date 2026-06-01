@@ -74,6 +74,44 @@ const css = `
   input,textarea,select{font-family:'DM Sans',sans-serif;}
 `
 
+// ─── EMAIL HELPER ────────────────────────────────────────────────────────────
+async function sendEmail(to, subject, html) {
+  try {
+    await fetch('/api/send-email', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to,subject,html})
+    })
+  } catch(e) { console.warn('Email non envoyé:',e) }
+}
+
+function msgEmailHtml(from, text, atts=[]) {
+  return `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+    <img src="https://talis-school.fr/logo.jpg" style="height:40px;margin-bottom:16px"/>
+    <h2 style="color:#6C63FF">Nouveau message sur Talis</h2>
+    <p><strong>${from}</strong> vous a envoyé un message :</p>
+    <div style="background:#F4F4FF;border-left:4px solid #6C63FF;padding:12px 16px;border-radius:6px;margin:12px 0">
+      ${text||'(Voir la pièce jointe)'}
+    </div>
+    ${atts.length>0?`<p>📎 Pièces jointes : ${atts.map(a=>a.name).join(', ')}</p>`:''}
+    <p style="color:#999;font-size:12px">Connectez-vous sur Talis pour répondre.</p>
+  </div>`
+}
+
+function contentEmailHtml(type, title, className) {
+  const icons={video:'🎬',fiche:'📄',quiz:'🧠'}
+  return `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
+    <img src="https://talis-school.fr/logo.jpg" style="height:40px;margin-bottom:16px"/>
+    <h2 style="color:#6C63FF">${icons[type]||'📚'} Nouveau contenu publié</h2>
+    <p>Votre professeur a publié un nouveau contenu pour la classe <strong>${className}</strong> :</p>
+    <div style="background:#F4F4FF;border-left:4px solid #6C63FF;padding:12px 16px;border-radius:6px;margin:12px 0">
+      <strong>${title}</strong>
+    </div>
+    <p>Connectez-vous sur Talis pour y accéder.</p>
+    <p style="color:#999;font-size:12px">Talis Business School</p>
+  </div>`
+}
+
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 const ini = n => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
 const avColor = n => {
@@ -225,7 +263,7 @@ function AttachPreview({files,onRemove}) {
 }
 
 // ─── MESSAGE THREAD ───────────────────────────────────────────────────────────
-function MsgThread({msgs,myRole,onSend,onDelete,loading,onView}) {
+function MsgThread({msgs,myRole,onSend,onDelete,loading,onView,onBack,otherName,isTyping,isOnline}) {
   const [text,setText]=useState('')
   const [atts,setAtts]=useState([])
   const [sending,setSending]=useState(false)
@@ -242,6 +280,16 @@ function MsgThread({msgs,myRole,onSend,onDelete,loading,onView}) {
 
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
+      {/* Fixed header with back button + online status */}
+      {onBack&&(
+        <div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0 10px',flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
+          <button onClick={onBack} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4,padding:0}}>←</button>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600,fontSize:14}}>{otherName}</div>
+            <div style={{fontSize:11,color:isOnline?G.accentGreen:G.muted}}>{isTyping?'✍️ en train d'écrire…':isOnline?'● En ligne':'○ Hors ligne'}</div>
+          </div>
+        </div>
+      )}
       <div style={{flex:1,overflow:'auto',display:'flex',flexDirection:'column',gap:9,paddingBottom:8}}>
         {loading?<Spinner/>:!msgs.length
           ?<div style={{color:G.muted,textAlign:'center',margin:'auto',fontSize:13}}>Aucun message.</div>
@@ -265,9 +313,12 @@ function MsgThread({msgs,myRole,onSend,onDelete,loading,onView}) {
                     )}
                     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:3,gap:8}}>
                       <div style={{fontSize:10,color:'rgba(255,255,255,.4)'}}>{m.sent_at?new Date(m.sent_at).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):''}</div>
-                      {mine&&onDelete&&m.id&&!m.id.toString().startsWith('tmp-')&&(
-                        <button onClick={()=>{ if(window.confirm('Supprimer ce message ?')) onDelete(m.id) }} style={{background:'none',border:'none',color:'rgba(255,255,255,.3)',cursor:'pointer',fontSize:11,padding:'0 2px',lineHeight:1}} title="Supprimer">🗑</button>
-                      )}
+                      <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        {mine&&<span style={{fontSize:10,color:m.read_at?G.accentGreen:'rgba(255,255,255,.3)'}} title={m.read_at?'Lu':'Envoyé'}>{m.read_at?'✓✓':'✓'}</span>}
+                        {mine&&onDelete&&m.id&&!m.id.toString().startsWith('tmp-')&&(
+                          <button onClick={()=>{ if(window.confirm('Supprimer ce message ?')) onDelete(m.id) }} style={{background:'none',border:'none',color:'rgba(255,255,255,.3)',cursor:'pointer',fontSize:11,padding:'0 2px',lineHeight:1}} title="Supprimer">🗑</button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -281,7 +332,7 @@ function MsgThread({msgs,myRole,onSend,onDelete,loading,onView}) {
         <AttachPreview files={atts} onRemove={id=>setAtts(a=>a.filter(f=>f.id!==id))}/>
         <div style={{display:'flex',gap:7,marginTop:6}}>
           <AttachBtn onFiles={f=>setAtts(a=>[...a,...f])}/>
-          <Inp value={text} onChange={e=>setText(e.target.value)} placeholder="Écrire un message…" style={{flex:1}} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
+          <Inp value={text} onChange={e=>{setText(e.target.value);if(typeof window!=='undefined'&&window._typingCb) window._typingCb(e.target.value.length>0)}} placeholder="Écrire un message…" style={{flex:1}} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
           <Btn onClick={send} disabled={!text.trim()&&!atts.length} loading={sending}>Envoyer</Btn>
         </div>
       </div>
@@ -472,6 +523,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [showPwdOpt,setShowPwdOpt]=useState(false)
   const [msgLoading,setMsgLoading]=useState(false)
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
+  const [teacherTyping,setTeacherTyping]=useState(false)
+  const [isTypingToTeacher,setIsTypingToTeacher]=useState(false)
 
   useEffect(()=>{
     loadAll()
@@ -495,7 +548,27 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'quiz_classes',filter:'class_id=eq.'+student.class_id},
         async()=>{ const {data:qRes}=await supabase.from('quiz_classes').select('quiz_id,quizzes(*,quiz_questions(*))').eq('class_id',student.class_id); setQuizzes((qRes||[]).map(r=>r.quizzes).filter(Boolean)) })
       .subscribe()
-    return ()=>{ msgSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe() }
+    // Presence: mark online
+    supabase.from('presence').upsert({student_id:student.id,is_online:true,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
+    const heartbeat=setInterval(()=>supabase.from('presence').upsert({student_id:student.id,is_online:true,last_seen_at:new Date().toISOString()},{onConflict:'student_id'}),30000)
+    const markOffline=()=>supabase.from('presence').upsert({student_id:student.id,is_online:false,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
+    window.addEventListener('beforeunload',markOffline)
+
+    // Typing channel: broadcast teacher typing to student
+    const typingCh=supabase.channel('typing-'+student.id)
+      .on('broadcast',{event:'typing'},({payload})=>setTeacherTyping(!!payload.typing))
+      .subscribe()
+    // Student typing: broadcast to teacher via a shared channel
+    window._typingCb=(isTyping)=>{
+      supabase.channel('typing-teacher-'+student.id).send({type:'broadcast',event:'student_typing',payload:{student_id:student.id,typing:isTyping}})
+    }
+
+    return ()=>{
+      msgSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe()
+      typingCh.unsubscribe(); clearInterval(heartbeat)
+      window.removeEventListener('beforeunload',markOffline); markOffline()
+      window._typingCb=null
+    }
   },[])
 
   useEffect(()=>{
@@ -551,6 +624,11 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     const msg={student_id:student.id,from_role:'student',text,attachments:atts.map(({name,type,size,url})=>({name,type,size,url}))}
     const {data}=await supabase.from('messages').insert(msg).select().single()
     if(data) setMsgs(m=>[...m,data])
+    // Mark all teacher messages as read when student sends
+    await supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',student.id).eq('from_role','teacher').is('read_at',null)
+    // Email notification to teacher (best effort)
+    const fullName=`${student.first_name} ${student.last_name}`
+    sendEmail('ben@talis.fr','💬 Nouveau message de '+fullName, msgEmailHtml(fullName,text,atts))
   }
 
   const deleteMsg=async(msgId)=>{
@@ -697,8 +775,21 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
         {tab==='msgs'&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
-            <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:12}}>💬 Messages</div>
-            <MsgThread msgs={msgs} myRole="student" onSend={sendMsg} onDelete={deleteMsg} loading={msgLoading}/>
+            <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:8}}>💬 Messages</div>
+            <MsgThread
+              msgs={msgs} myRole="student"
+              onSend={sendMsg} onDelete={deleteMsg}
+              loading={msgLoading}
+              isTyping={teacherTyping}
+              isOnline={true}
+              otherName="Benoit Resche"
+              onView={()=>{
+                setUnreadTeacher(0)
+                localStorage.setItem('talis_unread_'+student.id,'0')
+                // Mark teacher messages as read in DB
+                supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',student.id).eq('from_role','teacher').is('read_at',null)
+              }}
+            />
           </div>
         )}
       </div>
@@ -818,6 +909,8 @@ function TeacherApp({onLogout}) {
   const [quiz,setQuiz]=useState({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
+  const [presence,setPresence]=useState({}) // {studentId: {is_online, last_seen_at}}
+  const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
   const [readMsgs,setReadMsgs]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_read_msgs')||'{}') }catch{ return {} } })
   const sessionStart=useState(()=>new Date().toISOString())[0]
 
@@ -832,7 +925,19 @@ function TeacherApp({onLogout}) {
     const stuSub=supabase.channel('teacher-students')
       .on('postgres_changes',{event:'*',schema:'public',table:'students'},()=>loadAll())
       .subscribe()
-    return ()=>{ msgSub.unsubscribe(); stuSub.unsubscribe() }
+    // Presence realtime
+    const presSub=supabase.channel('teacher-presence')
+      .on('postgres_changes',{event:'*',schema:'public',table:'presence'},payload=>{
+        const r=payload.new||payload.old
+        if(r) setPresence(p=>({...p,[r.student_id]:{is_online:r.is_online,last_seen_at:r.last_seen_at}}))
+      }).subscribe()
+    // Load initial presence
+    supabase.from('presence').select('*').then(({data})=>{
+      if(data){ const p={}; data.forEach(r=>p[r.student_id]={is_online:r.is_online,last_seen_at:r.last_seen_at}); setPresence(p) }
+    })
+    // Student typing broadcasts
+    const typingChannels=[]
+    return ()=>{ msgSub.unsubscribe(); stuSub.unsubscribe(); presSub.unsubscribe(); typingChannels.forEach(c=>c.unsubscribe()) }
   },[])
 
   useEffect(()=>{
@@ -908,8 +1013,12 @@ function TeacherApp({onLogout}) {
     if(v){
       await supabase.from('video_classes').insert(form.vClassIds.map(cid=>({video_id:v.id,class_id:cid})))
       setVideos(vs=>[{...v,classIds:form.vClassIds},...vs])
+      // Email students of concerned classes
+      const concerned=students.filter(s=>form.vClassIds.includes(s.class_id))
+      const clsNames=form.vClassIds.map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')
+      concerned.forEach(s=>sendEmail(s.email,'🎬 Nouvelle vidéo sur Talis',contentEmailHtml('video',form.vTitle,clsNames)))
       setForm({vClassIds:[],fClassIds:[]})
-      alert('✅ Vidéo publiée !')
+      alert('✅ Vidéo publiée ! Emails envoyés.')
     }
     setSaving(false)
   }
@@ -922,8 +1031,11 @@ function TeacherApp({onLogout}) {
     if(f){
       await supabase.from('fiche_classes').insert(form.fClassIds.map(cid=>({fiche_id:f.id,class_id:cid})))
       setFiches(fs=>[{...f,classIds:form.fClassIds},...fs])
+      const concerned=students.filter(s=>form.fClassIds.includes(s.class_id))
+      const clsNames=form.fClassIds.map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')
+      concerned.forEach(s=>sendEmail(s.email,'📄 Nouvelle fiche sur Talis',contentEmailHtml('fiche',form.fTitle,clsNames)))
       setForm({vClassIds:[],fClassIds:[]})
-      alert('✅ Fiche publiée !')
+      alert('✅ Fiche publiée ! Emails envoyés.')
     }
     setSaving(false)
   }
@@ -937,8 +1049,11 @@ function TeacherApp({onLogout}) {
       const validQs=quiz.questions.filter(x=>x.q&&x.choices[0])
       await supabase.from('quiz_questions').insert(validQs.map((x,i)=>({quiz_id:q.id,question:x.q,choices:x.choices,answer_index:x.answer,position:i})))
       setQuizzes(qs=>[{...q,classIds:quiz.classIds,quiz_questions:validQs.map((x,i)=>({question:x.q,choices:x.choices,answer_index:x.answer,position:i}))},...qs])
+      const concerned=students.filter(s=>quiz.classIds.includes(s.class_id))
+      const clsNames=quiz.classIds.map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')
+      concerned.forEach(s=>sendEmail(s.email,'🧠 Nouveau quiz sur Talis',contentEmailHtml('quiz',quiz.title,clsNames)))
       setQuiz({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
-      alert('✅ Quiz publié !')
+      alert('✅ Quiz publié ! Emails envoyés.')
     }
     setSaving(false)
   }
@@ -966,11 +1081,18 @@ function TeacherApp({onLogout}) {
 
   const sendReply=async(sid,text,atts)=>{
     const msg={student_id:sid,from_role:'teacher',text,attachments:atts.map(({name,type,size,url})=>({name,type,size,url}))}
-    // Optimistic update: show immediately
     const optimistic={...msg,id:'tmp-'+Date.now(),sent_at:new Date().toISOString()}
     setMsgs(m=>({...m,[sid]:[...(m[sid]||[]),optimistic]}))
     const {data}=await supabase.from('messages').insert(msg).select().single()
     if(data) setMsgs(m=>({...m,[sid]:(m[sid]||[]).map(x=>x.id===optimistic.id?data:x)}))
+    // Mark student messages as read
+    await supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',sid).eq('from_role','student').is('read_at',null)
+    setReadMsgs(r=>({...r,[sid]:new Date().toISOString()}))
+    // Broadcast teacher typing=false
+    supabase.channel('typing-'+sid).send({type:'broadcast',event:'typing',payload:{typing:false}})
+    // Email to student
+    const s=students.find(x=>x.id===sid)
+    if(s) sendEmail(s.email,'💬 Nouveau message de votre professeur', msgEmailHtml('Benoit Resche',text,atts))
   }
 
   const tog=(arr,id)=>arr.includes(id)?arr.filter(x=>x!==id):[...arr,id]
@@ -1004,7 +1126,7 @@ function TeacherApp({onLogout}) {
       <div style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:9,flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
         <img src="/logo.jpg" alt="Talis" style={{height:32,width:'auto',borderRadius:4,flexShrink:0}}/>
         <div style={{flex:1}}>
-          <div className="syne" style={{fontWeight:700,fontSize:13}}>Ben · Formateur</div>
+          <div className="syne" style={{fontWeight:700,fontSize:13}}>Ben · Professeur</div>
           <div style={{fontSize:11,color:G.muted}}>{students.length} élèves · {classes.length} classes</div>
         </div>
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
@@ -1086,7 +1208,10 @@ function TeacherApp({onLogout}) {
                   <div key={s.id} onClick={()=>setSelStudent(s)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:12,padding:12,marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
                     <Av name={`${s.first_name} ${s.last_name}`} size={40}/>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:600,fontSize:13}}>{s.first_name} {s.last_name}</div>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <div style={{fontWeight:600,fontSize:13}}>{s.first_name} {s.last_name}</div>
+                        {presence[s.id]?.is_online&&<span style={{width:7,height:7,borderRadius:'50%',background:G.accentGreen,display:'inline-block',flexShrink:0}} title="En ligne"/>}
+                      </div>
                       <div style={{display:'flex',gap:5,marginTop:2,marginBottom:5,flexWrap:'wrap'}}>
                         {s.classes&&<Bdg color={s.classes.color} sm>{s.classes.name}</Bdg>}
                         {s.must_change_password&&<Bdg color={G.gold} sm>mdp à changer</Bdg>}
@@ -1106,12 +1231,20 @@ function TeacherApp({onLogout}) {
           <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
             {selStudent?(
               <div style={{display:'flex',flexDirection:'column',height:'100%'}}>
-                <button onClick={()=>setSelStudent(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',marginBottom:9,fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
-                <div style={{display:'flex',alignItems:'center',gap:9,marginBottom:11,flexShrink:0}}>
-                  <Av name={`${selStudent.first_name} ${selStudent.last_name}`} size={30}/>
-                  <div className="syne" style={{fontWeight:700,fontSize:14}}>{selStudent.first_name} {selStudent.last_name}</div>
-                </div>
-                <MsgThread msgs={msgs[selStudent.id]||[]} myRole="teacher" onSend={(t,a)=>sendReply(selStudent.id,t,a)} onDelete={(id)=>deleteMsg(selStudent.id,id)} onView={()=>setReadMsgs(r=>({...r,[selStudent.id]:new Date().toISOString()}))}/>
+                <MsgThread
+                  msgs={msgs[selStudent.id]||[]}
+                  myRole="teacher"
+                  onSend={(t,a)=>sendReply(selStudent.id,t,a)}
+                  onDelete={(id)=>deleteMsg(selStudent.id,id)}
+                  onView={()=>{
+                    setReadMsgs(r=>({...r,[selStudent.id]:new Date().toISOString()}))
+                    supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',selStudent.id).eq('from_role','student').is('read_at',null)
+                  }}
+                  onBack={()=>setSelStudent(null)}
+                  otherName={`${selStudent.first_name} ${selStudent.last_name}`}
+                  isTyping={!!studentTyping[selStudent.id]}
+                  isOnline={!!presence[selStudent.id]?.is_online}
+                />
               </div>
             ):(
               <>
@@ -1309,7 +1442,7 @@ function LoginScreen({onLogin}) {
     if(!email||!pwd) return
     setLoading(true); setErr('')
     // Teacher login
-    if((email==='ben'||email==='Ben'||email==='ben@talis.fr')&&pwd==='1234'){
+    if((email==='ben'||email==='Ben'||email==='ben@talis.fr')&&pwd==='181015'){
       onLogin({role:'teacher'}); return
     }
     // Student login
