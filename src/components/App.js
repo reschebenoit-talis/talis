@@ -286,7 +286,7 @@ function MsgThread({msgs,myRole,onSend,onDelete,loading,onView,onBack,otherName,
           <button onClick={onBack} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4,padding:0}}>←</button>
           <div style={{flex:1}}>
             <div style={{fontWeight:600,fontSize:14}}>{otherName}</div>
-            <div style={{fontSize:11,color:isOnline?G.accentGreen:G.muted}}>{isTyping?'✍️ en train d'écrire…':isOnline?'● En ligne':'○ Hors ligne'}</div>
+            <div style={{fontSize:11,color:isOnline?G.accentGreen:G.muted}}>{isTyping?'✍️ en train d\u2019\u00e9crire\u2026':isOnline?'● En ligne':'○ Hors ligne'}</div>
           </div>
         </div>
       )}
