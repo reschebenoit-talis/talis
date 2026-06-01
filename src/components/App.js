@@ -74,44 +74,6 @@ const css = `
   input,textarea,select{font-family:'DM Sans',sans-serif;}
 `
 
-// ─── EMAIL HELPER ────────────────────────────────────────────────────────────
-async function sendEmail(to, subject, html) {
-  try {
-    await fetch('/api/send-email', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({to,subject,html})
-    })
-  } catch(e) { console.warn('Email non envoyé:',e) }
-}
-
-function msgEmailHtml(from, text, atts=[]) {
-  return `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
-    <img src="https://talis-school.fr/logo.jpg" style="height:40px;margin-bottom:16px"/>
-    <h2 style="color:#6C63FF">Nouveau message sur Talis</h2>
-    <p><strong>${from}</strong> vous a envoyé un message :</p>
-    <div style="background:#F4F4FF;border-left:4px solid #6C63FF;padding:12px 16px;border-radius:6px;margin:12px 0">
-      ${text||'(Voir la pièce jointe)'}
-    </div>
-    ${atts.length>0?`<p>📎 Pièces jointes : ${atts.map(a=>a.name).join(', ')}</p>`:''}
-    <p style="color:#999;font-size:12px">Connectez-vous sur Talis pour répondre.</p>
-  </div>`
-}
-
-function contentEmailHtml(type, title, className) {
-  const icons={video:'🎬',fiche:'📄',quiz:'🧠'}
-  return `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:24px">
-    <img src="https://talis-school.fr/logo.jpg" style="height:40px;margin-bottom:16px"/>
-    <h2 style="color:#6C63FF">${icons[type]||'📚'} Nouveau contenu publié</h2>
-    <p>Votre professeur a publié un nouveau contenu pour la classe <strong>${className}</strong> :</p>
-    <div style="background:#F4F4FF;border-left:4px solid #6C63FF;padding:12px 16px;border-radius:6px;margin:12px 0">
-      <strong>${title}</strong>
-    </div>
-    <p>Connectez-vous sur Talis pour y accéder.</p>
-    <p style="color:#999;font-size:12px">Talis Business School</p>
-  </div>`
-}
-
 // ─── UTILS ───────────────────────────────────────────────────────────────────
 const ini = n => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)
 const avColor = n => {
@@ -626,9 +588,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     if(data) setMsgs(m=>[...m,data])
     // Mark all teacher messages as read when student sends
     await supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',student.id).eq('from_role','teacher').is('read_at',null)
-    // Email notification to teacher (best effort)
-    const fullName=`${student.first_name} ${student.last_name}`
-    sendEmail('ben@talis.fr','💬 Nouveau message de '+fullName, msgEmailHtml(fullName,text,atts))
+
   }
 
   const deleteMsg=async(msgId)=>{
@@ -1013,12 +973,8 @@ function TeacherApp({onLogout}) {
     if(v){
       await supabase.from('video_classes').insert(form.vClassIds.map(cid=>({video_id:v.id,class_id:cid})))
       setVideos(vs=>[{...v,classIds:form.vClassIds},...vs])
-      // Email students of concerned classes
-      const concerned=students.filter(s=>form.vClassIds.includes(s.class_id))
-      const clsNames=form.vClassIds.map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')
-      concerned.forEach(s=>sendEmail(s.email,'🎬 Nouvelle vidéo sur Talis',contentEmailHtml('video',form.vTitle,clsNames)))
       setForm({vClassIds:[],fClassIds:[]})
-      alert('✅ Vidéo publiée ! Emails envoyés.')
+      alert('✅ Vidéo publiée !')
     }
     setSaving(false)
   }
@@ -1031,11 +987,8 @@ function TeacherApp({onLogout}) {
     if(f){
       await supabase.from('fiche_classes').insert(form.fClassIds.map(cid=>({fiche_id:f.id,class_id:cid})))
       setFiches(fs=>[{...f,classIds:form.fClassIds},...fs])
-      const concerned=students.filter(s=>form.fClassIds.includes(s.class_id))
-      const clsNames=form.fClassIds.map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')
-      concerned.forEach(s=>sendEmail(s.email,'📄 Nouvelle fiche sur Talis',contentEmailHtml('fiche',form.fTitle,clsNames)))
       setForm({vClassIds:[],fClassIds:[]})
-      alert('✅ Fiche publiée ! Emails envoyés.')
+      alert('✅ Fiche publiée !')
     }
     setSaving(false)
   }
@@ -1049,11 +1002,8 @@ function TeacherApp({onLogout}) {
       const validQs=quiz.questions.filter(x=>x.q&&x.choices[0])
       await supabase.from('quiz_questions').insert(validQs.map((x,i)=>({quiz_id:q.id,question:x.q,choices:x.choices,answer_index:x.answer,position:i})))
       setQuizzes(qs=>[{...q,classIds:quiz.classIds,quiz_questions:validQs.map((x,i)=>({question:x.q,choices:x.choices,answer_index:x.answer,position:i}))},...qs])
-      const concerned=students.filter(s=>quiz.classIds.includes(s.class_id))
-      const clsNames=quiz.classIds.map(cid=>classes.find(c=>c.id===cid)?.name).filter(Boolean).join(', ')
-      concerned.forEach(s=>sendEmail(s.email,'🧠 Nouveau quiz sur Talis',contentEmailHtml('quiz',quiz.title,clsNames)))
       setQuiz({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
-      alert('✅ Quiz publié ! Emails envoyés.')
+      alert('✅ Quiz publié !')
     }
     setSaving(false)
   }
@@ -1090,9 +1040,7 @@ function TeacherApp({onLogout}) {
     setReadMsgs(r=>({...r,[sid]:new Date().toISOString()}))
     // Broadcast teacher typing=false
     supabase.channel('typing-'+sid).send({type:'broadcast',event:'typing',payload:{typing:false}})
-    // Email to student
-    const s=students.find(x=>x.id===sid)
-    if(s) sendEmail(s.email,'💬 Nouveau message de votre professeur', msgEmailHtml('Benoit Resche',text,atts))
+
   }
 
   const tog=(arr,id)=>arr.includes(id)?arr.filter(x=>x!==id):[...arr,id]
