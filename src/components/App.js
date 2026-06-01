@@ -1004,7 +1004,7 @@ function TeacherApp({onLogout}) {
       <div style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:9,flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
         <img src="/logo.jpg" alt="Talis" style={{height:32,width:'auto',borderRadius:4,flexShrink:0}}/>
         <div style={{flex:1}}>
-          <div className="syne" style={{fontWeight:700,fontSize:13}}>Ben · Professeur</div>
+          <div className="syne" style={{fontWeight:700,fontSize:13}}>Ben · Formateur</div>
           <div style={{fontSize:11,color:G.muted}}>{students.length} élèves · {classes.length} classes</div>
         </div>
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
