@@ -225,7 +225,7 @@ function AttachPreview({files,onRemove}) {
 }
 
 // ─── MESSAGE THREAD ───────────────────────────────────────────────────────────
-function MsgThread({msgs,myRole,onSend,onDelete,loading,onView,onBack,otherName,isTyping,isOnline}) {
+function MsgThread({msgs,myRole,onSend,onDelete,loading,onView,onBack,otherName,isTyping,isOnline,onTyping}) {
   const [text,setText]=useState('')
   const [atts,setAtts]=useState([])
   const [sending,setSending]=useState(false)
@@ -294,7 +294,10 @@ function MsgThread({msgs,myRole,onSend,onDelete,loading,onView,onBack,otherName,
         <AttachPreview files={atts} onRemove={id=>setAtts(a=>a.filter(f=>f.id!==id))}/>
         <div style={{display:'flex',gap:7,marginTop:6}}>
           <AttachBtn onFiles={f=>setAtts(a=>[...a,...f])}/>
-          <Inp value={text} onChange={e=>{setText(e.target.value);if(typeof window!=='undefined'&&window._typingCb) window._typingCb(e.target.value.length>0)}} placeholder="Écrire un message…" style={{flex:1}} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
+          <Inp value={text} onChange={e=>{
+              const v=e.target.value; setText(v)
+              if(onTyping) onTyping(v.length>0)
+            }} placeholder="Écrire un message…" style={{flex:1}} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
           <Btn onClick={send} disabled={!text.trim()&&!atts.length} loading={sending}>Envoyer</Btn>
         </div>
       </div>
@@ -484,6 +487,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [showPwd,setShowPwd]=useState(student.must_change_password)
   const [showPwdOpt,setShowPwdOpt]=useState(false)
   const [msgLoading,setMsgLoading]=useState(false)
+  const [grades,setGrades]=useState([])
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
   const [teacherTyping,setTeacherTyping]=useState(false)
   const [isTypingToTeacher,setIsTypingToTeacher]=useState(false)
@@ -493,7 +497,26 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     // Realtime: new messages from teacher
     const msgSub=supabase.channel('student-msgs-'+student.id)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'student_id=eq.'+student.id},
-        payload=>{ setMsgs(m=>[...m,payload.new]); setUnreadTeacher(u=>u+1) })
+        payload=>{
+          // Only add via realtime if it's from teacher (student's own msgs added in sendMsg)
+          if(payload.new.from_role==='teacher'){
+            setMsgs(m=>{
+              // Avoid duplicates
+              if(m.find(x=>x.id===payload.new.id)) return m
+              return [...m,payload.new]
+            })
+            setUnreadTeacher(u=>u+1)
+          }
+          // Update read_at for student's own messages (read receipt from teacher)
+          if(payload.new.from_role==='student'){
+            setMsgs(m=>m.map(x=>x.id===payload.new.id?payload.new:x))
+          }
+        })
+      .subscribe()
+    // Realtime: update read_at on student messages (teacher read them)
+    const readSub=supabase.channel('student-read-'+student.id)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:'student_id=eq.'+student.id},
+        payload=>{ setMsgs(m=>m.map(x=>x.id===payload.new.id?{...x,read_at:payload.new.read_at}:x)) })
       .subscribe()
     // Realtime: new videos for my class
     const vidSub=supabase.channel('student-vids-'+student.id)
@@ -510,23 +533,26 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'quiz_classes',filter:'class_id=eq.'+student.class_id},
         async()=>{ const {data:qRes}=await supabase.from('quiz_classes').select('quiz_id,quizzes(*,quiz_questions(*))').eq('class_id',student.class_id); setQuizzes((qRes||[]).map(r=>r.quizzes).filter(Boolean)) })
       .subscribe()
-    // Presence: mark online
-    supabase.from('presence').upsert({student_id:student.id,is_online:true,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
-    const heartbeat=setInterval(()=>supabase.from('presence').upsert({student_id:student.id,is_online:true,last_seen_at:new Date().toISOString()},{onConflict:'student_id'}),30000)
-    const markOffline=()=>supabase.from('presence').upsert({student_id:student.id,is_online:false,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
+    // Presence: mark online in DB + heartbeat
+    const upsertOnline=()=>supabase.from('presence').upsert({student_id:student.id,is_online:true,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
+    upsertOnline()
+    const heartbeat=setInterval(upsertOnline,20000)
+    const markOffline=async()=>{ await supabase.from('presence').upsert({student_id:student.id,is_online:false,last_seen_at:new Date().toISOString()},{onConflict:'student_id'}) }
     window.addEventListener('beforeunload',markOffline)
+    document.addEventListener('visibilitychange',()=>{ if(document.hidden) markOffline(); else upsertOnline() })
 
-    // Typing channel: broadcast teacher typing to student
-    const typingCh=supabase.channel('typing-'+student.id)
-      .on('broadcast',{event:'typing'},({payload})=>setTeacherTyping(!!payload.typing))
+    // Typing + teacher-to-student channel (single channel for both)
+    const typingCh=supabase.channel('conv-'+student.id, {config:{broadcast:{self:false}}})
+      .on('broadcast',{event:'teacher_typing'},({payload})=>setTeacherTyping(!!payload.typing))
       .subscribe()
-    // Student typing: broadcast to teacher via a shared channel
+
+    // Expose typing callback for input
     window._typingCb=(isTyping)=>{
-      supabase.channel('typing-teacher-'+student.id).send({type:'broadcast',event:'student_typing',payload:{student_id:student.id,typing:isTyping}})
+      supabase.channel('conv-'+student.id).send({type:'broadcast',event:'student_typing',payload:{student_id:student.id,typing:isTyping}})
     }
 
     return ()=>{
-      msgSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe()
+      msgSub.unsubscribe(); readSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe()
       typingCh.unsubscribe(); clearInterval(heartbeat)
       window.removeEventListener('beforeunload',markOffline); markOffline()
       window._typingCb=null
@@ -555,6 +581,9 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     ;(rRes.data||[]).forEach(r=>{ resMap[r.quiz_id]=r })
     setResults(resMap)
     setMsgs(mRes.data||[])
+    // Load student grades
+    const {data:gData}=await supabase.from('grade_scores').select('*,grades(title,coefficient,grade_classes(class_id))').eq('student_id',student.id)
+    setGrades((gData||[]).map(gs=>({...gs.grades,score:gs.score})).filter(g=>g&&g.grade_classes?.some(gc=>gc.class_id===student.class_id)))
     setLoading(false)
   }
 
@@ -607,7 +636,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
   const myClass=classes.find(c=>c.id===student.class_id)
   const fullName=`${student.first_name} ${student.last_name}`
-  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'msgs',icon:'💬',label:'Messages'}]
+  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},{id:'msgs',icon:'💬',label:'Messages'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
@@ -733,6 +762,45 @@ function StudentApp({student,onLogout,onPwdSaved}) {
           </div>
         )}
 
+        {tab==='notes'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>📝 Mes notes</div>
+            {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune note publiée pour le moment.</div>}
+            {grades.map((g,i)=>{
+              const color=parseFloat(g.score)>=10?G.accentGreen:G.accentHot
+              return (
+                <div key={i} style={{background:G.card,border:`1px solid ${color}33`,borderRadius:13,padding:14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                    <div style={{flex:1}}>
+                      <div className="syne" style={{fontWeight:700,fontSize:14}}>{g.title}</div>
+                      <Bdg color={G.muted}>Coeff. {g.coefficient}</Bdg>
+                    </div>
+                    <div className="syne" style={{fontSize:24,fontWeight:800,color}}>{g.score}/20</div>
+                  </div>
+                  <PBar value={(parseFloat(g.score)/20)*100} color={color}/>
+                  <div style={{fontSize:11,color:G.muted,marginTop:5}}>{parseFloat(g.score)>=10?'✅ Validé':'❌ En dessous de la moyenne'}</div>
+                </div>
+              )
+            })}
+            {grades.length>0&&(
+              <div style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14}}>
+                <div className="syne" style={{fontWeight:700,marginBottom:8,fontSize:14}}>📊 Moyenne générale</div>
+                {(()=>{
+                  const total=grades.reduce((a,g)=>a+(parseFloat(g.score)||0)*g.coefficient,0)
+                  const coeffs=grades.reduce((a,g)=>a+g.coefficient,0)
+                  const avg=coeffs?Math.round((total/coeffs)*10)/10:0
+                  return (
+                    <>
+                      <div className="syne" style={{fontSize:28,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg}/20</div>
+                      <PBar value={(avg/20)*100} color={avg>=10?G.accentGreen:G.accentHot}/>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
         {tab==='msgs'&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
             <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:8}}>💬 Messages</div>
@@ -743,6 +811,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
               isTyping={teacherTyping}
               isOnline={true}
               otherName="Benoit Resche"
+              onTyping={(isT)=>{ if(window._typingCb) window._typingCb(isT) }}
               onView={()=>{
                 setUnreadTeacher(0)
                 localStorage.setItem('talis_unread_'+student.id,'0')
@@ -869,7 +938,9 @@ function TeacherApp({onLogout}) {
   const [quiz,setQuiz]=useState({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
-  const [presence,setPresence]=useState({}) // {studentId: {is_online, last_seen_at}}
+  const [presence,setPresence]=useState({})
+  const [grades,setGrades]=useState([]) // [{id,title,coefficient,classIds,scores:{studentId:note}}]
+  const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}}) // {studentId: {is_online, last_seen_at}}
   const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
   const [readMsgs,setReadMsgs]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_read_msgs')||'{}') }catch{ return {} } })
   const sessionStart=useState(()=>new Date().toISOString())[0]
@@ -878,8 +949,18 @@ function TeacherApp({onLogout}) {
     loadAll()
     // Realtime: new messages from students
     const msgSub=supabase.channel('teacher-msgs')
-      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:'from_role=eq.student'},
-        payload=>{ setMsgs(prev=>{ const sid=payload.new.student_id; return {...prev,[sid]:[...(prev[sid]||[]),payload.new]} }) })
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},
+        payload=>{
+          const m=payload.new; const sid=m.student_id
+          if(m.from_role==='student'){
+            setMsgs(prev=>({...prev,[sid]:[...(prev[sid]||[]).filter(x=>x.id!==m.id),m]}))
+          }
+        })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages'},
+        payload=>{
+          const m=payload.new; const sid=m.student_id
+          setMsgs(prev=>({...prev,[sid]:(prev[sid]||[]).map(x=>x.id===m.id?{...x,read_at:m.read_at}:x)}))
+        })
       .subscribe()
     // Realtime: new students
     const stuSub=supabase.channel('teacher-students')
@@ -895,9 +976,25 @@ function TeacherApp({onLogout}) {
     supabase.from('presence').select('*').then(({data})=>{
       if(data){ const p={}; data.forEach(r=>p[r.student_id]={is_online:r.is_online,last_seen_at:r.last_seen_at}); setPresence(p) }
     })
-    // Student typing broadcasts
-    const typingChannels=[]
-    return ()=>{ msgSub.unsubscribe(); stuSub.unsubscribe(); presSub.unsubscribe(); typingChannels.forEach(c=>c.unsubscribe()) }
+    // Subscribe to student typing per conversation
+    const convChannels={}
+    const subscribeTyping=(sid)=>{
+      if(convChannels[sid]) return
+      convChannels[sid]=supabase.channel('conv-'+sid,{config:{broadcast:{self:false}}})
+        .on('broadcast',{event:'student_typing'},({payload})=>{
+          setStudentTyping(t=>({...t,[payload.student_id]:!!payload.typing}))
+          // Auto-clear typing after 3s
+          setTimeout(()=>setStudentTyping(t=>({...t,[payload.student_id]:false})),3000)
+        })
+        .subscribe()
+    }
+    // Subscribe to all current students
+    supabase.from('students').select('id').then(({data})=>data?.forEach(s=>subscribeTyping(s.id)))
+
+    return ()=>{
+      msgSub.unsubscribe(); stuSub.unsubscribe(); presSub.unsubscribe()
+      Object.values(convChannels).forEach(c=>c.unsubscribe())
+    }
   },[])
 
   useEffect(()=>{
@@ -924,6 +1021,15 @@ function TeacherApp({onLogout}) {
     const grouped={}
     ;(allMsgs||[]).forEach(m=>{ if(!grouped[m.student_id]) grouped[m.student_id]=[]; grouped[m.student_id].push(m) })
     setMsgs(grouped)
+    // Load grades
+    const {data:gradesData}=await supabase.from('grades').select('*,grade_classes(class_id),grade_scores(*)').order('created_at',{ascending:false})
+    if(gradesData){
+      setGrades(gradesData.map(g=>({
+        ...g,
+        classIds:(g.grade_classes||[]).map(gc=>gc.class_id),
+        scores:Object.fromEntries((g.grade_scores||[]).map(s=>[s.student_id,s.score]))
+      })))
+    }
     setLoading(false)
   }
 
@@ -1038,8 +1144,8 @@ function TeacherApp({onLogout}) {
     // Mark student messages as read
     await supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',sid).eq('from_role','student').is('read_at',null)
     setReadMsgs(r=>({...r,[sid]:new Date().toISOString()}))
-    // Broadcast teacher typing=false
-    supabase.channel('typing-'+sid).send({type:'broadcast',event:'typing',payload:{typing:false}})
+    // Broadcast teacher typing=false on conv channel
+    supabase.channel('conv-'+sid).send({type:'broadcast',event:'teacher_typing',payload:{typing:false}})
 
   }
 
@@ -1062,7 +1168,7 @@ function TeacherApp({onLogout}) {
     return (msgs[sid]||[]).filter(m=>m.from_role==='student'&&new Date(m.sent_at)>new Date(lastRead)).length
   }
   const totalUnread=students.reduce((a,s)=>a+countUnread(s.id),0)
-  const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'add',icon:'➕',label:'Ajouter'}]
+  const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'notes',icon:'📝',label:'Notes'},{id:'add',icon:'➕',label:'Ajouter'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',background:G.bg}}><Spinner/></div>
 
@@ -1192,6 +1298,7 @@ function TeacherApp({onLogout}) {
                   otherName={`${selStudent.first_name} ${selStudent.last_name}`}
                   isTyping={!!studentTyping[selStudent.id]}
                   isOnline={!!presence[selStudent.id]?.is_online}
+                  onTyping={(isT)=>supabase.channel('conv-'+selStudent.id).send({type:'broadcast',event:'teacher_typing',payload:{typing:isT}})}
                 />
               </div>
             ):(
@@ -1261,6 +1368,103 @@ function TeacherApp({onLogout}) {
                   </div>
                 ))}
             </>
+          </div>
+        )}
+
+        {/* NOTES */}
+        {tab==='notes'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>📝 Notes & Évaluations</div>
+
+            {/* Create new grade */}
+            <div style={{background:G.card,border:`1px solid ${G.accentHot}33`,borderRadius:14,padding:16}}>
+              <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accentHot,fontSize:13}}>➕ Nouvelle évaluation</div>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <Inp placeholder="Intitulé (ex: Contrôle chapitre 3)" value={gradeForm.title} onChange={e=>setGradeForm({...gradeForm,title:e.target.value})}/>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{fontSize:12,color:G.muted,flexShrink:0}}>Coefficient :</span>
+                  {[0.5,1,2,3,4,5].map(c=>(
+                    <div key={c} onClick={()=>setGradeForm({...gradeForm,coefficient:c})} style={{padding:'3px 9px',borderRadius:7,background:gradeForm.coefficient===c?G.accentHot+'33':G.surface,border:`1px solid ${gradeForm.coefficient===c?G.accentHot:G.border}`,color:gradeForm.coefficient===c?G.accentHot:G.muted,cursor:'pointer',fontSize:12}}>{c}</div>
+                  ))}
+                </div>
+                <div style={{fontSize:12,color:G.muted}}>Classes :</div>
+                <ClsCbs value={gradeForm.classIds} onChange={v=>setGradeForm({...gradeForm,classIds:v,scores:{}})}/>
+                {gradeForm.classIds.length>0&&(
+                  <>
+                    <div style={{fontSize:12,color:G.muted,marginTop:4}}>Notes des élèves (sur 20) :</div>
+                    <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:240,overflow:'auto'}}>
+                      {students.filter(s=>gradeForm.classIds.includes(s.class_id)).map(s=>(
+                        <div key={s.id} style={{display:'flex',alignItems:'center',gap:10,background:G.surface,borderRadius:8,padding:'7px 10px'}}>
+                          <Av name={`${s.first_name} ${s.last_name}`} size={26}/>
+                          <div style={{flex:1,fontSize:13}}>{s.first_name} {s.last_name}</div>
+                          <input
+                            type="number" min="0" max="20" step="0.5"
+                            placeholder="—"
+                            value={gradeForm.scores[s.id]||''}
+                            onChange={e=>setGradeForm(f=>({...f,scores:{...f.scores,[s.id]:e.target.value}}))}
+                            style={{width:52,background:G.card,border:`1px solid ${G.border}`,borderRadius:7,color:G.text,fontSize:13,padding:'4px 8px',textAlign:'center',outline:'none'}}
+                          />
+                          <span style={{fontSize:12,color:G.muted}}>/20</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <Btn v="hot" onClick={async()=>{
+                  if(!gradeForm.title||!gradeForm.classIds.length) return
+                  setSaving(true)
+                  const {data:g}=await supabase.from('grades').insert({title:gradeForm.title,coefficient:gradeForm.coefficient}).select().single()
+                  if(g){
+                    await supabase.from('grade_classes').insert(gradeForm.classIds.map(cid=>({grade_id:g.id,class_id:cid})))
+                    const scoreRows=Object.entries(gradeForm.scores).filter(([,v])=>v!=='').map(([sid,score])=>({grade_id:g.id,student_id:sid,score:parseFloat(score)}))
+                    if(scoreRows.length) await supabase.from('grade_scores').insert(scoreRows)
+                    await loadAll()
+                    setGradeForm({title:'',coefficient:1,classIds:[],scores:{}})
+                    alert('✅ Évaluation publiée !')
+                  }
+                  setSaving(false)
+                }} disabled={!gradeForm.title||!gradeForm.classIds.length} loading={saving}>Publier l’évaluation</Btn>
+              </div>
+            </div>
+
+            {/* List of grades */}
+            {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune évaluation publiée.</div>}
+            {grades.map(g=>{
+              const cls=g.classIds.map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
+              const concerned=students.filter(s=>g.classIds.includes(s.class_id))
+              const scored=concerned.filter(s=>g.scores[s.id]!==undefined)
+              const avg=scored.length?Math.round(scored.reduce((a,s)=>a+(parseFloat(g.scores[s.id])||0),0)/scored.length*10)/10:null
+              return (
+                <div key={g.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                    <div style={{flex:1}}>
+                      <div className="syne" style={{fontWeight:700,fontSize:14}}>{g.title}</div>
+                      <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
+                        <Bdg color={G.accentHot}>Coeff. {g.coefficient}</Bdg>
+                        {cls.map(c=><Bdg key={c.id} color={c.color}>{c.name}</Bdg>)}
+                        {avg!==null&&<Bdg color={avg>=10?G.accentGreen:G.accentHot}>Moy. {avg}/20</Bdg>}
+                      </div>
+                    </div>
+                    <button onClick={async()=>{ if(window.confirm('Supprimer cette évaluation ?')){await supabase.from('grades').delete().eq('id',g.id);await loadAll()} }} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14}}>🗑</button>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                    {concerned.map(s=>{
+                      const note=g.scores[s.id]
+                      return (
+                        <div key={s.id} style={{display:'flex',alignItems:'center',gap:8,background:G.surface,borderRadius:8,padding:'6px 10px'}}>
+                          <div style={{fontSize:12,flex:1}}>{s.first_name} {s.last_name}</div>
+                          {note!==undefined
+                            ?<><div style={{fontSize:13,fontWeight:700,color:parseFloat(note)>=10?G.accentGreen:G.accentHot}}>{note}/20</div>
+                              <div style={{width:60}}><PBar value={(parseFloat(note)/20)*100} color={parseFloat(note)>=10?G.accentGreen:G.accentHot} h={4}/></div></>
+                            :<div style={{fontSize:12,color:G.muted}}>— Non noté</div>
+                          }
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
