@@ -489,6 +489,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [showPwdOpt,setShowPwdOpt]=useState(false)
   const [msgLoading,setMsgLoading]=useState(false)
   const [grades,setGrades]=useState([])
+  const [studentNotesView,setStudentNotesView]=useState(null)
+  const [gameActive,setGameActive]=useState(false)
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
   const [teacherTyping,setTeacherTyping]=useState(false)
   const [isTypingToTeacher,setIsTypingToTeacher]=useState(false)
@@ -666,7 +668,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
   const myClass=classes.find(c=>c.id===student.class_id)
   const fullName=`${student.first_name} ${student.last_name}`
-  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},{id:'game',icon:'🎮',label:'Jeu'},{id:'msgs',icon:'💬',label:'Messages'}]
+  const isNDRC=myClass&&myClass.name.toUpperCase().includes('NDRC')
+  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},...(isNDRC?[{id:'game',icon:'🎮',label:'Jeu'}]:[]),(  {id:'msgs',icon:'💬',label:'Messages'})]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
@@ -797,60 +800,88 @@ function StudentApp({student,onLogout,onPwdSaved}) {
           <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:12}}>
             <div className="syne" style={{fontSize:18,fontWeight:800}}>📝 Mes notes</div>
             {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune note publiée pour le moment.</div>}
-            {grades.map((g,i)=>{
+
+            {/* LEVEL 1: global weighted average — clickable */}
+            {grades.length>0&&!studentNotesView&&(()=>{
+              const total=grades.reduce((a,g)=>a+(parseFloat(g.score)||0)*g.coefficient,0)
+              const coeffs=grades.reduce((a,g)=>a+g.coefficient,0)
+              const avg=coeffs?Math.round(total/coeffs*10)/10:0
+              const aboveClassAvg=grades.filter(g=>g.classAvg!==null&&parseFloat(g.score)>=g.classAvg).length
+              return (
+                <div onClick={()=>setStudentNotesView('list')} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                    <div style={{flex:1}}>
+                      <div className="syne" style={{fontWeight:800,fontSize:15}}>Moyenne générale</div>
+                      <div style={{color:G.muted,fontSize:12,marginTop:2}}>{grades.length} devoir{grades.length>1?'s':''} · Voir le détail →</div>
+                    </div>
+                    <div className="syne" style={{fontSize:30,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg}/20</div>
+                  </div>
+                  <PBar value={(avg/20)*100} color={avg>=10?G.accentGreen:G.accentHot}/>
+                  <div style={{marginTop:10,fontSize:12,color:G.muted}}>
+                    Au-dessus de la moyenne de classe sur <strong style={{color:G.accentGreen}}>{aboveClassAvg}</strong> devoir{aboveClassAvg>1?'s':''} / {grades.length}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* LEVEL 2: list of grades — avg class only */}
+            {studentNotesView==='list'&&(
+              <>
+                <button onClick={()=>setStudentNotesView(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
+                {grades.map((g,i)=>(
+                  <div key={i} onClick={()=>setStudentNotesView(i)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,cursor:'pointer'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:600,fontSize:14}}>{g.title}</div>
+                        <Bdg color={G.muted}>Coeff. {g.coefficient}</Bdg>
+                      </div>
+                      <div style={{textAlign:'right',flexShrink:0}}>
+                        <div className="syne" style={{fontSize:20,fontWeight:800,color:g.classAvg>=10?G.accentGreen:G.accentHot}}>{g.classAvg??'—'}/20</div>
+                        <div style={{fontSize:10,color:G.muted}}>Moy. classe</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* LEVEL 3: detail of one grade */}
+            {studentNotesView!==null&&studentNotesView!=='list'&&(()=>{
+              const g=grades[studentNotesView]; if(!g) return null
               const myScore=parseFloat(g.score)
               const color=myScore>=10?G.accentGreen:G.accentHot
               const aboveAvg=g.classAvg!==null&&myScore>=g.classAvg
               return (
-                <div key={i} style={{background:G.card,border:`1px solid ${color}33`,borderRadius:13,padding:14}}>
-                  {/* Header: title + my score */}
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-                    <div style={{flex:1}}>
-                      <div className="syne" style={{fontWeight:700,fontSize:14}}>{g.title}</div>
-                      <Bdg color={G.muted}>Coeff. {g.coefficient}</Bdg>
-                    </div>
-                    <div style={{textAlign:'right'}}>
-                      <div className="syne" style={{fontSize:26,fontWeight:800,color,lineHeight:1}}>{myScore}/20</div>
-                      <div style={{fontSize:10,color:aboveAvg?G.accentGreen:G.accentHot,fontWeight:600,marginTop:2}}>
-                        {aboveAvg?'↑ Au-dessus de la moyenne':'↓ En dessous de la moyenne'}
+                <>
+                  <button onClick={()=>setStudentNotesView('list')} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
+                  <div style={{background:G.card,border:`1px solid ${color}33`,borderRadius:13,padding:16}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+                      <div style={{flex:1}}>
+                        <div className="syne" style={{fontWeight:700,fontSize:15}}>{g.title}</div>
+                        <Bdg color={G.muted}>Coeff. {g.coefficient}</Bdg>
+                      </div>
+                      <div style={{textAlign:'right'}}>
+                        <div className="syne" style={{fontSize:28,fontWeight:800,color,lineHeight:1}}>{myScore}/20</div>
+                        <div style={{fontSize:11,color:aboveAvg?G.accentGreen:G.accentHot,fontWeight:600,marginTop:2}}>
+                          {aboveAvg?'↑ Au-dessus':'↓ En dessous'}
+                        </div>
                       </div>
                     </div>
+                    <PBar value={(myScore/20)*100} color={color}/>
+                    {g.classAvg!==null&&(
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginTop:12}}>
+                        {[['📉 Plus basse',g.classMin,G.accentHot],['📊 Moyenne',g.classAvg,G.gold],['📈 Plus haute',g.classMax,G.accentGreen]].map(([label,val,c])=>(
+                          <div key={label} style={{background:G.surface,borderRadius:8,padding:'7px 8px',textAlign:'center'}}>
+                            <div style={{fontSize:9,color:G.muted,marginBottom:3}}>{label}</div>
+                            <div className="syne" style={{fontSize:16,fontWeight:800,color:c}}>{val}/20</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <PBar value={(myScore/20)*100} color={color}/>
-                  {/* Class stats */}
-                  {g.classAvg!==null&&(
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginTop:10}}>
-                      {[
-                        ['📉 Plus basse',g.classMin,G.accentHot],
-                        ['📊 Moyenne',g.classAvg,G.gold],
-                        ['📈 Plus haute',g.classMax,G.accentGreen],
-                      ].map(([label,val,c])=>(
-                        <div key={label} style={{background:G.surface,borderRadius:8,padding:'7px 8px',textAlign:'center'}}>
-                          <div style={{fontSize:9,color:G.muted,marginBottom:3}}>{label}</div>
-                          <div className="syne" style={{fontSize:16,fontWeight:800,color:c}}>{val}/20</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                </>
               )
-            })}
-            {grades.length>0&&(
-              <div style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14}}>
-                <div className="syne" style={{fontWeight:700,marginBottom:8,fontSize:14}}>📊 Moyenne générale</div>
-                {(()=>{
-                  const total=grades.reduce((a,g)=>a+(parseFloat(g.score)||0)*g.coefficient,0)
-                  const coeffs=grades.reduce((a,g)=>a+g.coefficient,0)
-                  const avg=coeffs?Math.round((total/coeffs)*10)/10:0
-                  return (
-                    <>
-                      <div className="syne" style={{fontSize:28,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg}/20</div>
-                      <PBar value={(avg/20)*100} color={avg>=10?G.accentGreen:G.accentHot}/>
-                    </>
-                  )
-                })()}
-              </div>
-            )}
+            })()}
           </div>
         )}
 
@@ -884,15 +915,59 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         )}
       </div>
 
-      {tab==='game'&&(
+      {tab==='game'&&!gameActive&&(
+        <div style={{position:'absolute',inset:0,zIndex:10,background:G.bg,display:'flex',flexDirection:'column',overflow:'auto'}}>
+          <div style={{padding:20,display:'flex',flexDirection:'column',gap:14}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques NDRC</div>
+            {/* Game 1: available */}
+            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🏙️</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:15}}>La quête du référencement</div>
+                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div>
+                </div>
+                <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
+              </div>
+            </div>
+            {/* Game 2: coming soon */}
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 2</div>
+                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+                </div>
+                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+              </div>
+            </div>
+            {/* Game 3: coming soon */}
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 3</div>
+                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+                </div>
+                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {tab==='game'&&gameActive&&(
         <div style={{position:'absolute',inset:0,zIndex:10,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(0,0,0,.5)',flexShrink:0}}>
+            <button onClick={()=>setGameActive(false)} style={{background:'none',border:'none',color:'#fff',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Quitter</button>
+            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>La quête du référencement</div>
+          </div>
           <iframe src="/game.html" style={{flex:1,width:'100%',border:'none',display:'block'}} title="Jeu"/>
         </div>
       )}
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
@@ -1009,6 +1084,7 @@ function TeacherApp({onLogout}) {
   const [grades,setGrades]=useState([]) // [{id,title,coefficient,classIds,scores:{studentId:note}}]
   const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}})
   const [editingGrade,setEditingGrade]=useState(null) // grade being edited
+  const [notesView,setNotesView]=useState(null) // null=overview, 'list'=all grades, gradeId=detail
   const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
   const [readMsgs,setReadMsgs]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_read_msgs')||'{}') }catch{ return {} } })
   const sessionStart=useState(()=>new Date().toISOString())[0]
@@ -1535,51 +1611,102 @@ function TeacherApp({onLogout}) {
               </div>
             </div>
 
-            {/* List of grades */}
-            {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune évaluation publiée.</div>}
-            {grades.map(g=>{
-              const cls=g.classIds.map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
+            {/* ── LEVEL 1: global class average ── */}
+            {!notesView&&(
+              <>
+                {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune évaluation publiée.</div>}
+                {grades.length>0&&(()=>{
+                  // Compute overall weighted average across all grades
+                  const allScored=grades.flatMap(g=>students.filter(s=>g.classIds.includes(s.class_id)&&g.scores[s.id]!==undefined).map(s=>({score:parseFloat(g.scores[s.id]),coeff:g.coefficient})))
+                  const totalW=allScored.reduce((a,x)=>a+x.score*x.coeff,0)
+                  const totalC=allScored.reduce((a,x)=>a+x.coeff,0)
+                  const globalAvg=totalC?Math.round(totalW/totalC*10)/10:null
+                  return (
+                    <div onClick={()=>setNotesView('list')} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{flex:1}}>
+                          <div className="syne" style={{fontWeight:800,fontSize:15}}>Moyenne générale — tous devoirs</div>
+                          <div style={{color:G.muted,fontSize:12,marginTop:2}}>{grades.length} évaluation{grades.length>1?'s':''} · Cliquer pour le détail →</div>
+                        </div>
+                        <div className="syne" style={{fontSize:30,fontWeight:800,color:globalAvg>=10?G.accentGreen:G.accentHot}}>{globalAvg??'—'}/20</div>
+                      </div>
+                      <div style={{marginTop:10}}><PBar value={globalAvg?(globalAvg/20)*100:0} color={globalAvg>=10?G.accentGreen:G.accentHot}/></div>
+                    </div>
+                  )
+                })()}
+              </>
+            )}
+
+            {/* ── LEVEL 2: list of grades (avg only, no detail) ── */}
+            {notesView==='list'&&(
+              <>
+                <button onClick={()=>setNotesView(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
+                <div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>Toutes les évaluations</div>
+                {grades.map(g=>{
+                  const cls=g.classIds.map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
+                  const concerned=students.filter(s=>g.classIds.includes(s.class_id))
+                  const scored=concerned.filter(s=>g.scores[s.id]!==undefined)
+                  const avg=scored.length?Math.round(scored.reduce((a,s)=>a+(parseFloat(g.scores[s.id])||0),0)/scored.length*10)/10:null
+                  return (
+                    <div key={g.id} onClick={()=>setNotesView(g.id)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,cursor:'pointer'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:600,fontSize:14}}>{g.title}</div>
+                          <div style={{display:'flex',gap:5,marginTop:4,flexWrap:'wrap'}}>
+                            <Bdg color={G.accentHot}>Coeff. {g.coefficient}</Bdg>
+                            {cls.map(c=><Bdg key={c.id} color={c.color}>{c.name}</Bdg>)}
+                          </div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          <div className="syne" style={{fontSize:22,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg??'—'}/20</div>
+                          <div style={{fontSize:10,color:G.muted}}>Moy. classe</div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </>
+            )}
+
+            {/* ── LEVEL 3: grade detail per student ── */}
+            {notesView&&notesView!=='list'&&(()=>{
+              const g=grades.find(x=>x.id===notesView); if(!g) return null
               const concerned=students.filter(s=>g.classIds.includes(s.class_id))
               const scored=concerned.filter(s=>g.scores[s.id]!==undefined)
               const avg=scored.length?Math.round(scored.reduce((a,s)=>a+(parseFloat(g.scores[s.id])||0),0)/scored.length*10)/10:null
               return (
-                <div key={g.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                    <div style={{flex:1}}>
-                      <div className="syne" style={{fontWeight:700,fontSize:14}}>{g.title}</div>
-                      <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
-                        <Bdg color={G.accentHot}>Coeff. {g.coefficient}</Bdg>
-                        {cls.map(c=><Bdg key={c.id} color={c.color}>{c.name}</Bdg>)}
-                        {avg!==null&&<Bdg color={avg>=10?G.accentGreen:G.accentHot}>Moy. {avg}/20</Bdg>}
-                      </div>
-                    </div>
-                    <div style={{display:'flex',gap:6}}>
-                      <button onClick={()=>{
-                        setEditingGrade(g.id)
-                        setGradeForm({title:g.title,coefficient:g.coefficient,classIds:g.classIds,scores:{...g.scores}})
-                        window.scrollTo({top:0,behavior:'smooth'})
-                      }} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}} title="Modifier">✏️</button>
-                      <button onClick={async()=>{ if(window.confirm('Supprimer cette évaluation ?')){await supabase.from('grades').delete().eq('id',g.id);await loadAll()} }} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14}} title="Supprimer">🗑</button>
+                <>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <button onClick={()=>setNotesView('list')} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>← Retour</button>
+                    <div className="syne" style={{fontWeight:700,fontSize:15,flex:1}}>{g.title}</div>
+                    <div style={{display:'flex',gap:5}}>
+                      <button onClick={()=>{setEditingGrade(g.id);setGradeForm({title:g.title,coefficient:g.coefficient,classIds:g.classIds,scores:{...g.scores}});setNotesView(null)}} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>✏️</button>
+                      <button onClick={async()=>{if(window.confirm('Supprimer ?')){await supabase.from('grades').delete().eq('id',g.id);await loadAll();setNotesView('list')}}} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14}}>🗑</button>
                     </div>
                   </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                  {avg!==null&&<div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:11,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+                    <div style={{flex:1,color:G.muted,fontSize:12}}>Moyenne de classe</div>
+                    <div className="syne" style={{fontSize:20,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg}/20</div>
+                  </div>}
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
                     {concerned.map(s=>{
                       const note=g.scores[s.id]
                       return (
-                        <div key={s.id} style={{display:'flex',alignItems:'center',gap:8,background:G.surface,borderRadius:8,padding:'6px 10px'}}>
-                          <div style={{fontSize:12,flex:1}}>{s.first_name} {s.last_name}</div>
+                        <div key={s.id} style={{display:'flex',alignItems:'center',gap:8,background:G.card,border:`1px solid ${G.border}`,borderRadius:10,padding:'10px 14px'}}>
+                          <Av name={`${s.first_name} ${s.last_name}`} size={30}/>
+                          <div style={{flex:1,fontSize:13,fontWeight:500}}>{s.first_name} {s.last_name}</div>
                           {note!==undefined
-                            ?<><div style={{fontSize:13,fontWeight:700,color:parseFloat(note)>=10?G.accentGreen:G.accentHot}}>{note}/20</div>
-                              <div style={{width:60}}><PBar value={(parseFloat(note)/20)*100} color={parseFloat(note)>=10?G.accentGreen:G.accentHot} h={4}/></div></>
+                            ?<><div style={{fontSize:14,fontWeight:800,color:parseFloat(note)>=10?G.accentGreen:G.accentHot}}>{note}/20</div>
+                              <div style={{width:50}}><PBar value={(parseFloat(note)/20)*100} color={parseFloat(note)>=10?G.accentGreen:G.accentHot} h={4}/></div></>
                             :<div style={{fontSize:12,color:G.muted}}>— Non noté</div>
                           }
                         </div>
                       )
                     })}
                   </div>
-                </div>
+                </>
               )
-            })}
+            })()}
           </div>
         )}
 
@@ -1686,15 +1813,59 @@ function TeacherApp({onLogout}) {
         )}
       </div>
 
-      {tab==='game'&&(
+      {tab==='game'&&!gameActive&&(
+        <div style={{position:'absolute',inset:0,zIndex:10,background:G.bg,display:'flex',flexDirection:'column',overflow:'auto'}}>
+          <div style={{padding:20,display:'flex',flexDirection:'column',gap:14}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques NDRC</div>
+            {/* Game 1: available */}
+            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🏙️</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:15}}>La quête du référencement</div>
+                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div>
+                </div>
+                <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
+              </div>
+            </div>
+            {/* Game 2: coming soon */}
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 2</div>
+                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+                </div>
+                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+              </div>
+            </div>
+            {/* Game 3: coming soon */}
+            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 3</div>
+                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+                </div>
+                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {tab==='game'&&gameActive&&(
         <div style={{position:'absolute',inset:0,zIndex:10,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(0,0,0,.5)',flexShrink:0}}>
+            <button onClick={()=>setGameActive(false)} style={{background:'none',border:'none',color:'#fff',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Quitter</button>
+            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>La quête du référencement</div>
+          </div>
           <iframe src="/game.html" style={{flex:1,width:'100%',border:'none',display:'block'}} title="Jeu"/>
         </div>
       )}
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null);if(t.id!=='notes') setNotesView(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accentHot:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&totalUnread>0&&<div style={{position:'absolute',top:0,right:'16%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
