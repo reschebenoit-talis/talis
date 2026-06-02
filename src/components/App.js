@@ -669,7 +669,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const myClass=classes.find(c=>c.id===student.class_id)
   const fullName=`${student.first_name} ${student.last_name}`
   const isNDRC=myClass&&myClass.name.toUpperCase().includes('NDRC')
-  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},...(isNDRC?[{id:'game',icon:'🎮',label:'Jeu'}]:[]),(  {id:'msgs',icon:'💬',label:'Messages'})]
+  const isMCO=myClass&&myClass.name.toUpperCase().includes('MCO')
+  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},...(isNDRC||isMCO?[{id:'game',icon:'🎮',label:'Jeu'}]:[]),({id:'msgs',icon:'💬',label:'Messages'})]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
@@ -919,36 +920,46 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         <div style={{position:'absolute',inset:0,zIndex:10,background:G.bg,display:'flex',flexDirection:'column',overflow:'auto'}}>
           <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
             <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques</div>
-            <div style={{color:G.muted,fontSize:13}}>Aperçu de tous les jeux disponibles pour vos classes.</div>
-
-            <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accent,letterSpacing:1,marginTop:4}}>NDRC</div>
-            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:11}}>
-                <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏙️</div>
-                <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>La quête du référencement</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div></div>
-                <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
-              </div>
-            </div>
-            {['Jeu NDRC 2','Jeu NDRC 3'].map((label,i)=>(
-              <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
-                <div style={{display:'flex',alignItems:'center',gap:11}}>
-                  <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
-                  <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
-                  <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+            {myClass&&<div style={{color:G.muted,fontSize:13}}>Jeux disponibles pour ta classe <strong style={{color:myClass.color}}>{myClass.name}</strong></div>}
+            {isNDRC&&(
+              <>
+                <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:11}}>
+                    <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏙️</div>
+                    <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>La quête du référencement</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div></div>
+                    <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-
-            <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accentHot,letterSpacing:1,marginTop:6}}>MCO</div>
-            {['Jeu MCO 1','Jeu MCO 2','Jeu MCO 3'].map((label,i)=>(
-              <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
-                <div style={{display:'flex',alignItems:'center',gap:11}}>
-                  <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
-                  <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
-                  <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+                {['Jeu 2','Jeu 3'].map((label,i)=>(
+                  <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
+                    <div style={{display:'flex',alignItems:'center',gap:11}}>
+                      <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
+                      <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
+                      <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+            {isMCO&&(
+              <>
+                {['Jeu 1','Jeu 2','Jeu 3'].map((label,i)=>(
+                  <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
+                    <div style={{display:'flex',alignItems:'center',gap:11}}>
+                      <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
+                      <div style={{flex:1}}>
+                        <div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div>
+                        <div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div>
+                      </div>
+                      <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{background:G.accentHot+'11',border:`1px solid ${G.accentHot}33`,borderRadius:10,padding:'10px 14px',fontSize:12,color:G.accentHot,textAlign:'center'}}>
+                  🎮 Des jeux arrivent bientôt pour ta classe !
                 </div>
-              </div>
-            ))}
+              </>
+            )}
           </div>
         </div>
       )}
