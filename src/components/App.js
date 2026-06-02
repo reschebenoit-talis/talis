@@ -853,16 +853,12 @@ function StudentApp({student,onLogout,onPwdSaved}) {
           </div>
         )}
         {tab==='game'&&(
-          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%',gap:12}}>
-            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 La quête du référencement</div>
-            <div style={{flex:1,borderRadius:14,overflow:'hidden',border:`1px solid ${G.border}`,minHeight:0,background:'#0a0a1a'}}>
-              <iframe
-                src="/game.html"
-                style={{width:'100%',height:'100%',border:'none',display:'block',minHeight:540}}
-                title="Jeu RPG pédagogique"
-                allow="scripts"
-              />
-            </div>
+          <div style={{position:'absolute',inset:0,zIndex:5,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
+            <iframe
+              src="/game.html"
+              style={{flex:1,width:'100%',border:'none',display:'block',minHeight:0}}
+              title="Jeu RPG pédagogique"
+            />
           </div>
         )}
 
@@ -1589,17 +1585,12 @@ function TeacherApp({onLogout}) {
 
         {/* GAME */}
         {tab==='game'&&(
-          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%',gap:12}}>
-            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 La quête du référencement</div>
-            <div style={{color:G.muted,fontSize:13}}>Aperçu du jeu disponible pour vos élèves.</div>
-            <div style={{flex:1,borderRadius:14,overflow:'hidden',border:`1px solid ${G.border}`,minHeight:0,background:'#0a0a1a'}}>
-              <iframe
-                src="/game.html"
-                style={{width:'100%',height:'100%',border:'none',display:'block',minHeight:540}}
-                title="Jeu RPG pédagogique"
-                allow="scripts"
-              />
-            </div>
+          <div style={{position:'absolute',inset:0,zIndex:5,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
+            <iframe
+              src="/game.html"
+              style={{flex:1,width:'100%',border:'none',display:'block',minHeight:0}}
+              title="Jeu RPG pédagogique"
+            />
           </div>
         )}
 
