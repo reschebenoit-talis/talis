@@ -1646,18 +1646,18 @@ function TeacherApp({onLogout}) {
                                 {modItems.map(item=>{
                                   const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
                                   return (
-                                    <div key={item.id} style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,padding:'9px 12px'}}>
+                                    <div key={item.id} onClick={item._type!=='quiz'&&item.drive_url?()=>setDrivePreview(item):undefined} className={item._type!=='quiz'&&item.drive_url?'hov':''} style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,padding:'9px 12px',cursor:item._type!=='quiz'&&item.drive_url?'pointer':'default'}}>
                                       <div style={{display:'flex',alignItems:'center',gap:9}}>
                                         <div style={{fontSize:16,flexShrink:0}}>{item._icon}</div>
                                         <div style={{flex:1,minWidth:0}}>
                                           <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
                                           <div style={{display:'flex',gap:4,marginTop:3,flexWrap:'wrap'}}>
                                             {itemClasses.map(c=><span key={c.id} style={{background:c.color+'22',color:c.color,border:`1px solid ${c.color}44`,borderRadius:4,padding:'1px 5px',fontSize:9,fontWeight:600}}>{c.name}</span>)}
-                                            {item._type!=='quiz'&&<span style={{fontSize:9,color:item.drive_url?G.accentGreen:G.accentHot}}>{item.drive_url?'✅':'⚠️'}</span>}
+                                            {item._type!=='quiz'&&<span style={{fontSize:9,color:item.drive_url?G.accentGreen:G.accentHot}}>{item.drive_url?'✅ Ouvrir':'⚠️ Pas de lien'}</span>}
+                                            {item._type==='quiz'&&<span style={{fontSize:9,color:G.muted}}>{(item.quiz_questions||[]).length} question{(item.quiz_questions||[]).length>1?'s':''}</span>}
                                           </div>
                                         </div>
-                                        <div style={{display:'flex',gap:4,flexShrink:0}}>
-                                          {item._type!=='quiz'&&item.drive_url&&<button onClick={()=>setDrivePreview(item)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:12}}>👁</button>}
+                                        <div style={{display:'flex',gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
                                           <button onClick={()=>deleteContent(item._type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:12}}>🗑</button>
                                         </div>
                                       </div>
