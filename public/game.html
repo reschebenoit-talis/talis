@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La quête du référencement</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#1a1a2e;display:flex;justify-content:center;padding:16px;min-height:100vh}
+#G{width:100%;max-width:720px}
+
+#scene{
+  position:relative;width:100%;height:460px;overflow:hidden;
+  border-radius:8px 8px 0 0;
+  image-rendering:pixelated;
+  image-rendering:crisp-edges;
+}
+
+/* SKY gradient layers */
+#sky{position:absolute;inset:0;background:#0a0a1a}
+.moon{position:absolute;top:18px;right:60px;width:28px;height:28px;border-radius:50%;background:#f0e8c8;box-shadow:0 0 0 4px rgba(240,232,200,0.15),0 0 0 8px rgba(240,232,200,0.07)}
+.moon-crater{position:absolute;border-radius:50%;background:rgba(0,0,0,0.15)}
+
+/* City backdrop - deep perspective layers */
+#city-far{position:absolute;bottom:180px;left:0;right:0;height:200px}
+#city-mid{position:absolute;bottom:160px;left:0;right:0;height:240px}
+#city-near{position:absolute;bottom:145px;left:0;right:0;height:260px}
+
+/* Ground layers - isometric feel */
+#ground-back{position:absolute;bottom:0;left:0;right:0;height:200px;background:#1c1409}
+#sidewalk{position:absolute;bottom:0;left:0;right:0;height:155px;background:#2a2318}
+#road{position:absolute;bottom:0;left:0;right:0;height:110px;background:#1e1a14}
+#road-near{position:absolute;bottom:0;left:0;right:0;height:60px;background:#252018}
+
+/* Perspective road lines */
+.road-line{position:absolute;bottom:30px;background:#c8a050;opacity:0.7}
+.road-line.solid{height:3px;left:0;right:0}
+.road-mark{position:absolute;bottom:48px;height:3px;background:#c8a050;opacity:0.5}
+
+/* Sidewalk curb */
+#curb{position:absolute;left:0;right:0;bottom:108px;height:5px;background:#3d3428}
+#curb-top{position:absolute;left:0;right:0;bottom:113px;height:2px;background:#5a4e3a}
+
+/* Canvas for pixel city */
+#city-canvas{position:absolute;bottom:110px;left:0;width:100%;height:330px;image-rendering:pixelated}
+
+/* Hero */
+#hero-wrap{
+  position:absolute;bottom:112px;
+  transition:left 0.95s cubic-bezier(.4,0,.2,1);
+  z-index:40;transform:translateX(-50%);
+}
+#hero-canvas{image-rendering:pixelated;display:block}
+
+/* Shadow under hero */
+#hero-shadow{
+  position:absolute;bottom:108px;
+  width:28px;height:6px;
+  background:rgba(0,0,0,0.5);
+  border-radius:50%;
+  transform:translateX(-50%);
+  z-index:39;
+  transition:left 0.95s cubic-bezier(.4,0,.2,1);
+}
+
+/* Checkpoints */
+.cp{position:absolute;bottom:148px;transform:translateX(-50%);z-index:35;text-align:center}
+.cp-pip{
+  width:10px;height:10px;border-radius:50%;
+  margin:0 auto 3px;
+  border:2px solid rgba(255,255,255,0.4);
+}
+.cp-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,0.3);
+  margin:0 auto;
+}
+.cp-lbl{font-size:8px;color:rgba(255,255,255,0.5);margin-top:2px;white-space:nowrap;font-family:monospace;letter-spacing:0.3px}
+.cp.done .cp-pip{background:#639922;border-color:#97C459}
+.cp.active .cp-pip{background:#378ADD;border-color:#85B7EB;animation:cpulse 1.5s infinite}
+.cp.locked .cp-pip{background:#333;border-color:#555}
+@keyframes cpulse{0%,100%{box-shadow:0 0 0 0 rgba(55,138,221,.7)}60%{box-shadow:0 0 0 8px rgba(55,138,221,0)}}
+
+/* Path dots on sidewalk */
+.path-dot{position:absolute;bottom:125px;width:5px;height:5px;border-radius:50%;background:rgba(200,160,80,0.3);transform:translateX(-50%);z-index:20}
+
+/* HUD */
+#hud{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 16px;
+  background:#111118;
+  border-left:1px solid #2a2a3a;border-right:1px solid #2a2a3a;
+  font-family:monospace;
+}
+.hud-g{display:flex;align-items:center;gap:6px;font-size:11px;color:#8888aa}
+.hud-v{font-size:13px;font-weight:700;color:#e0e0ff;font-family:monospace;letter-spacing:1px}
+.hp{width:10px;height:10px;border-radius:2px;background:#E24B4A;display:inline-block;transition:all .3s}
+.hp.off{background:#333344}
+.xpw{width:64px;height:5px;background:#222233;border-radius:1px;overflow:hidden;border:1px solid #333344}
+.xpf{height:100%;background:#378ADD;transition:width .5s}
+#streak-label{font-size:10px;color:#BA7517;font-family:monospace;font-weight:700}
+
+/* Panel */
+#panel{
+  border:1px solid #2a2a3a;border-top:none;
+  border-radius:0 0 8px 8px;
+  background:#0e0e1a;min-height:280px;
+}
+#scr{padding:20px 24px}
+
+.ztag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:10px;font-weight:700;padding:3px 10px;border-radius:3px;
+  margin-bottom:10px;font-family:monospace;letter-spacing:0.5px;text-transform:uppercase;
+}
+.qtxt{
+  font-size:14px;font-weight:600;color:#d0d0e8;
+  line-height:1.65;margin-bottom:16px;
+  border-left:3px solid #378ADD;padding-left:12px;
+}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.cbtn{
+  text-align:left;padding:9px 12px;
+  border:1px solid #2a2a3a;border-radius:4px;
+  background:#13131f;font-size:12px;color:#c0c0d8;cursor:pointer;
+  transition:all .15s;display:flex;align-items:flex-start;gap:8px;line-height:1.45;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+.cbtn:hover:not(:disabled){background:#1e1e2e;border-color:#378ADD;color:#e0e0ff}
+.cltr{
+  width:18px;height:18px;border-radius:2px;flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;font-family:monospace;
+  background:#1e1e30;border:1px solid #3a3a4a;color:#8888aa;
+}
+.cbtn.ok{background:#0a1f0a;border-color:#639922;color:#97C459}
+.cbtn.ok .cltr{background:#0a1f0a;border-color:#639922;color:#97C459}
+.cbtn.ko{background:#1f0a0a;border-color:#A32D2D;color:#F09595}
+.cbtn.ko .cltr{background:#1f0a0a;border-color:#A32D2D;color:#F09595}
+.cbtn:disabled{cursor:default}
+.fb{margin-top:12px;padding:10px 14px;border-radius:4px;font-size:12px;line-height:1.6;font-family:monospace}
+.fb.ok{background:#0a1f0a;border:1px solid #639922;color:#97C459}
+.fb.ko{background:#1f0a0a;border:1px solid #A32D2D;color:#F09595}
+.nxt{
+  margin-top:12px;padding:8px 18px;
+  border:1px solid #378ADD;border-radius:3px;
+  background:#0d1e30;font-size:12px;cursor:pointer;
+  color:#85B7EB;font-family:monospace;font-weight:700;
+  display:inline-flex;align-items:center;gap:6px;letter-spacing:0.5px;
+}
+.nxt:hover{background:#1a3050}
+
+.sscreen{text-align:center;padding:28px 20px}
+.sscreen h2{font-size:18px;font-weight:700;color:#e0e0ff;margin-bottom:10px;font-family:monospace;letter-spacing:1px}
+.sscreen p{font-size:12px;color:#8888aa;line-height:1.8;margin-bottom:20px}
+.bbtn{
+  padding:10px 28px;border:1px solid #378ADD;border-radius:3px;
+  background:#0d1e30;font-size:13px;cursor:pointer;color:#85B7EB;
+  font-family:monospace;font-weight:700;letter-spacing:1px;
+}
+.bbtn:hover{background:#1a3050}
+.sbig{font-size:28px;font-weight:700;color:#e0e0ff;margin:8px 0 12px;font-family:monospace}
+
+@keyframes jmp{0%{transform:translateY(0)}35%{transform:translateY(-16px)}70%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+.jump{animation:jmp .5s ease}
+</style>
+</head>
+<body>
+<div id="G">
+
+<div id="scene">
+  <div id="sky">
+    <div class="moon">
+      <div class="moon-crater" style="width:5px;height:5px;top:6px;left:8px"></div>
+      <div class="moon-crater" style="width:4px;height:4px;top:14px;left:16px"></div>
+      <div class="moon-crater" style="width:3px;height:3px;top:10px;left:5px"></div>
+    </div>
+    <canvas id="stars-c" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+  </div>
+  <div id="ground-back"></div>
+  <div id="sidewalk"></div>
+  <div id="road"></div>
+  <div id="road-near"></div>
+  <div id="curb"></div>
+  <div id="curb-top"></div>
+  <div class="road-line solid"></div>
+  <div id="road-marks"></div>
+  <canvas id="city-canvas"></canvas>
+  <div id="path-dots"></div>
+  <div id="cps-layer"></div>
+  <div id="hero-shadow"></div>
+  <div id="hero-wrap"><canvas id="hero-canvas" width="40" height="64"></canvas></div>
+</div>
+
+<div id="hud">
+  <div class="hud-g"><span style="color:#5a5a7a">ÉTAPE</span><span class="hud-v" id="h-step">01/20</span></div>
+  <div class="hud-g"><span style="color:#5a5a7a">HP</span><span class="hp" id="hp0"></span><span class="hp" id="hp1"></span><span class="hp" id="hp2"></span></div>
+  <div class="hud-g"><span style="color:#5a5a7a">SCORE</span><span class="hud-v" id="h-score">00000</span></div>
+  <div class="hud-g"><span style="color:#5a5a7a">XP</span><div class="xpw"><div class="xpf" id="xpf" style="width:0%"></div></div></div>
+  <div class="hud-g"><span id="streak-label"></span></div>
+</div>
+
+<div id="panel"><div id="scr">
+  <div class="sscreen" id="s-start">
+    <div style="font-size:40px;margin-bottom:12px;image-rendering:pixelated">🌆</div>
+    <h2>[ LA QUÊTE DU RÉFÉRENCEMENT ]</h2>
+    <p>Maxime, commercial terrain, traverse la ville pour décrocher<br>le contrat avec <strong style="color:#c8a050">DistribMax</strong>.<br><br>20 questions — les mauvaises réponses sont des pièges réalistes.<br>Les réponses sont mélangées à chaque partie.</p>
+    <button class="bbtn" onclick="startGame()">► COMMENCER</button>
+  </div>
+  <div id="s-q" style="display:none"></div>
+  <div id="s-end" style="display:none"></div>
+</div></div>
+
+</div>
+
+<script>
+/* ─── QUESTIONS ─────────────────────────────────────────── */
+/* cor = index dans ch[] AVANT mélange — on stocke le texte correct */
+const QS_RAW=[
+  {z:"Fonctions de la distribution",ic:"📦",col:"#0C447C",bg:"#0a1525",
+   q:"Parmi ces fonctions, laquelle N'appartient PAS à la distribution physique ?",
+   ch:["Fonction de transport logistique","Fonction de stockage pour le réassort","Fonction de production industrielle","Fonction de financement du risque"],
+   ans:"Fonction de production industrielle",
+   ex:"La distribution physique couvre transport, stockage, financement, SAV, assortiment et communication — jamais la production, qui relève du fabricant."},
+
+  {z:"Canaux de distribution",ic:"🔗",col:"#0C447C",bg:"#0a1525",
+   q:"Producteur → Centrale d'achat → Grossiste → Détaillant. Quel canal est-ce ?",
+   ch:["Canal direct","Canal court","Canal long","Canal intégré"],
+   ans:"Canal long",
+   ex:"Le canal long comprend au moins deux intermédiaires. Centrale + grossiste = deux niveaux. Le canal court n'en a qu'un seul."},
+
+  {z:"Stratégies de distribution",ic:"🎯",col:"#3C3489",bg:"#130f25",
+   q:"Une marque high-tech impose que seuls ses revendeurs certifiés et formés vendent ses produits. Quelle stratégie ?",
+   ch:["Distribution intensive","Distribution exclusive","Distribution sélective","Distribution intégrée"],
+   ans:"Distribution sélective",
+   ex:"La sélective choisit ses revendeurs sur critères (formation, image, zone). L'exclusive n'en retient qu'un seul par zone."},
+
+  {z:"Stratégies de distribution",ic:"🎯",col:"#3C3489",bg:"#130f25",
+   q:"Une marque vend exclusivement dans ses propres boutiques. Laquelle de ces propositions est vraie ?",
+   ch:["C'est une distribution exclusive : un seul distributeur externe","C'est une distribution sélective : les revendeurs sont triés","C'est une distribution intégrée : le producteur maîtrise ses points de vente","C'est une distribution intensive : présence maximum"],
+   ans:"C'est une distribution intégrée : le producteur maîtrise ses points de vente",
+   ex:"La stratégie intégrée = vente uniquement dans les propres points de vente de la marque. L'exclusive désigne un distributeur externe unique."},
+
+  {z:"Choix de la stratégie",ic:"🧭",col:"#3C3489",bg:"#130f25",
+   q:"La 'technicité du produit' influence le choix du canal. Qu'est-ce que cela implique concrètement ?",
+   ch:["Un produit technique doit être en distribution intensive","La technicité impose une vente en ligne uniquement","Un produit complexe nécessite démonstration ou formation au point de vente","La technicité réduit le nombre de fournisseurs possibles"],
+   ans:"Un produit complexe nécessite démonstration ou formation au point de vente",
+   ex:"Plus un produit est technique, plus il faut un distributeur capable de le présenter et expliquer — ce qui oriente vers un canal sélectif ou court."},
+
+  {z:"Coopération — GPA",ic:"🤝",col:"#633806",bg:"#1a0f00",
+   q:"La GPA (Gestion Partagée des Approvisionnements) vise principalement à :",
+   ch:["Fixer un prix de vente commun producteur-distributeur","Réduire le nombre de références en rayon","Assurer 'le bon produit au bon endroit au bon moment'","Externaliser totalement la logistique"],
+   ans:"Assurer 'le bon produit au bon endroit au bon moment'",
+   ex:"La GPA partage les données de vente pour optimiser les flux et limiter ruptures et surstocks — sans toucher aux prix ni à l'assortiment."},
+
+  {z:"Coopération — ECR vs GPA",ic:"🤝",col:"#633806",bg:"#1a0f00",
+   q:"Quelle est la différence clé entre ECR et GPA ?",
+   ch:["L'ECR gère les prix ; la GPA gère les stocks","L'ECR optimise l'assortiment selon le client ; la GPA optimise les flux d'approvisionnement","L'ECR concerne les grossistes ; la GPA les centrales","Ce sont deux noms pour le même outil"],
+   ans:"L'ECR optimise l'assortiment selon le client ; la GPA optimise les flux d'approvisionnement",
+   ex:"ECR (Efficient Consumer Response) = adapter l'offre aux comportements clients. GPA = fluidifier les réapprovisionnements. Deux logiques complémentaires."},
+
+  {z:"Cadre légal",ic:"⚖️",col:"#633806",bg:"#1a0f00",
+   q:"Concernant la loi LME 2008 renforcée par Sapin 2016, quelle affirmation est FAUSSE ?",
+   ch:["Les fournisseurs transmettent leurs CGV avant le 30 novembre","Le délai de paiement maximum est de 60 jours après facturation","Les distributeurs peuvent imposer leurs conditions générales d'achat au fournisseur","La loi protège aussi les intérêts des consommateurs"],
+   ans:"Les distributeurs peuvent imposer leurs conditions générales d'achat au fournisseur",
+   ex:"C'est l'inverse : les fournisseurs envoient LEURS CGV. Les distributeurs ne peuvent pas imposer les leurs. La base de négociation part toujours du tarif fournisseur."},
+
+  {z:"Accords de distribution",ic:"📝",col:"#085041",bg:"#001510",
+   q:"Dans un contrat de franchise, le franchisé bénéficie de la marque du franchiseur. En échange :",
+   ch:["Il verse des redevances et respecte le concept","Il devient propriétaire de la marque après 5 ans","Il peut modifier librement le concept localement","Il reçoit une exclusivité nationale automatique"],
+   ans:"Il verse des redevances et respecte le concept",
+   ex:"Le franchisé exploite la marque et le savoir-faire en échange de redevances. Il doit respecter scrupuleusement le concept — pas de liberté de modification."},
+
+  {z:"Référencement",ic:"📋",col:"#085041",bg:"#001510",
+   q:"Accord de référencement 'centralisé' vs 'décentralisé' : quelle est la distinction exacte ?",
+   ch:["Centralisé = négociation par région ; décentralisé = négociation nationale","Centralisé = la centrale impose sans choix local ; décentralisé = autonomie du point de vente","Centralisé = uniquement grandes surfaces ; décentralisé = uniquement petits commerces","Centralisé = prix fixes ; décentralisé = prix négociables"],
+   ans:"Centralisé = la centrale impose sans choix local ; décentralisé = autonomie du point de vente",
+   ex:"En centralisé, les magasins n'ont aucune latitude. En décentralisé, chaque point de vente choisit librement. La décision mixte est entre les deux."},
+
+  {z:"Étapes de négociation",ic:"🗣️",col:"#085041",bg:"#001510",
+   q:"Lors de la phase 'argumentation', le commercial doit convaincre :",
+   ch:["Uniquement le directeur des achats de la centrale","Le distributeur de sa rentabilité, ET démontrer la valeur pour ses clients finaux","Uniquement les clients en magasin via PLV","Le chef de rayon uniquement, sans remonter à la centrale"],
+   ans:"Le distributeur de sa rentabilité, ET démontrer la valeur pour ses clients finaux",
+   ex:"L'argumentation est double : convaincre le distributeur (marge, image, rotation) ET montrer que le produit répond aux attentes des consommateurs de ce distributeur."},
+
+  {z:"Fixation des prix",ic:"💶",col:"#712B13",bg:"#1a0500",
+   q:"Deux interdictions légales pèsent sur le producteur concernant les prix. Lesquelles ?",
+   ch:["Interdiction de remises et interdiction de livraison gratuite","Interdiction de vendre à perte ET interdiction d'imposer un prix de vente au distributeur","Interdiction de prix conseillé ET interdiction de promotion","Interdiction de vendre en direct ET interdiction de vendre en ligne"],
+   ans:"Interdiction de vendre à perte ET interdiction d'imposer un prix de vente au distributeur",
+   ex:"Vendre à perte (sous le coût de revient) est illégal. Imposer un prix de revente est anticoncurrentiel. Le distributeur fixe librement son prix de vente final."},
+
+  {z:"Calcul de marges",ic:"💶",col:"#712B13",bg:"#1a0500",
+   q:"Coût d'achat HT : 40 € — Prix de vente HT : 60 €. Quel est le taux de MARQUE ?",
+   ch:["50 % (marge/coût d'achat)","40 % (marge/prix de vente)","33,3 % (marge/prix de vente)","25 % (marge/coût d'achat)"],
+   ans:"33,3 % (marge/prix de vente)",
+   ex:"Taux de MARQUE = marge / PV HT = 20/60 = 33,3 %. Taux de MARGE = marge / coût achat = 20/40 = 50 %. Confusion fréquente à l'examen !"},
+
+  {z:"Zones d'implantation",ic:"🗺️",col:"#085041",bg:"#001510",
+   q:"Pourquoi la 'zone froide' est-elle problématique pour un nouveau produit ?",
+   ch:["Elle est réservée aux marques distributeur (MDD)","Elle correspond aux allées naturellement peu fréquentées par les clients","Elle est trop proche de la caisse, donc peu visible","Elle est réservée aux produits en promotion uniquement"],
+   ans:"Elle correspond aux allées naturellement peu fréquentées par les clients",
+   ex:"La zone froide est le parcours que les clients n'empruntent pas naturellement. Y placer un nouveau produit réduit drastiquement son exposition. La zone chaude = le flux naturel."},
+
+  {z:"Niveaux d'implantation",ic:"🛒",col:"#085041",bg:"#001510",
+   q:"Un commercial négocie le niveau 'yeux' (1,70 m). Quel autre niveau est stratégiquement proche en termes de ventes ?",
+   ch:["Le niveau sol (<1 m) car il attire les enfants","Le niveau plafond (>2 m) car il valorise l'image","Le niveau mains (1,50 m) car le client attrape facilement le produit","Le niveau taille (1,20 m) car il est dans le champ visuel périphérique"],
+   ans:"Le niveau mains (1,50 m) car le client attrape facilement le produit",
+   ex:"Niveaux 'yeux' (1,70m) = excellent. Niveau 'mains' (1,50m) = bon. Ces deux niveaux sont les plus vendeurs. Au-delà de 2m ou sous 1m, les ventes chutent significativement."},
+
+  {z:"Implantation rayon",ic:"🛒",col:"#085041",bg:"#001510",
+   q:"En implantation HORIZONTALE (par marque), quelle règle le commercial applique-t-il ?",
+   ch:["Les produits les plus rentables sont placés à gauche","Les produits de la marque leader sont placés en bas pour stabilité","Les produits les plus chers sont positionnés aux niveaux yeux et mains","Toutes les références occupent un espace identique"],
+   ans:"Les produits les plus chers sont positionnés aux niveaux yeux et mains",
+   ex:"En horizontal, chaque marque occupe une ligne. Le commercial positionne sa gamme haut de gamme (plus chère et plus rentable) aux niveaux yeux/mains. Les entrées de gamme vont en haut ou en bas."},
+
+  {z:"Animations commerciales",ic:"🎪",col:"#72243E",bg:"#150008",
+   q:"Quelle animation est la PLUS efficace pour lancer un produit alimentaire inconnu ?",
+   ch:["Jeu-concours avec gain d'un lot","Annonce micro pour vente flash","Dégustation sur le lieu de vente","Vente privée sur fichier client"],
+   ans:"Dégustation sur le lieu de vente",
+   ex:"La dégustation supprime le frein principal : la peur de l'inconnu. Elle permet une conversion immédiate. Les autres animations ne suppriment pas ce frein fondamental."},
+
+  {z:"Évaluation des animations",ic:"📊",col:"#72243E",bg:"#150008",
+   q:"Le tableau de bord d'évaluation d'une animation doit mesurer :",
+   ch:["Uniquement le CA généré pendant l'animation","La variation du CA avant / pendant / après, comparée à N-1 et à l'objectif","Le nombre de produits distribués en échantillon","La satisfaction uniquement via questionnaire"],
+   ans:"La variation du CA avant / pendant / après, comparée à N-1 et à l'objectif",
+   ex:"Un bon tableau de bord quantifie les écarts par rapport à N-1 ET à l'objectif fixé. Mesurer uniquement pendant l'animation ignore l'effet de halo post-animation."},
+
+  {z:"Pilotage & veille",ic:"🔍",col:"#0C447C",bg:"#0a1525",
+   q:"Le 'category management' sert à :",
+   ch:["Automatiser la gestion des commandes fournisseurs","Définir les leviers commerciaux à activer par catégorie de produits","Calculer en temps réel les marges du distributeur","Planifier les tournées du commercial terrain"],
+   ans:"Définir les leviers commerciaux à activer par catégorie de produits",
+   ex:"Le category management est stratégique : il analyse chaque catégorie pour déterminer quelles actions prioriser (assortiment, prix, promotion, implantation). C'est un outil de pilotage, pas d'automatisation."},
+
+  {z:"KPI's — DN et DV",ic:"📈",col:"#712B13",bg:"#1a0500",
+   q:"DN = 60, DV = 20. Cette combinaison signifie que le produit est :",
+   ch:["Dans 20 % des magasins qui représentent 60 % du CA du marché","Dans 60 % des points de vente mais des petits formats qui pèsent peu","Absent des grandes enseignes nationales","En croissance dans 60 % des zones géographiques"],
+   ans:"Dans 60 % des points de vente mais des petits formats qui pèsent peu",
+   ex:"DN > DV = beaucoup de points de vente mais peu puissants. Idéalement on veut DN et DV proches ou DV > DN (peu de magasins mais les plus gros). À retenir pour l'exam !"},
+];
+
+/* ─── SHUFFLE ANSWERS ──────────────────────────────────── */
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function buildQS(){
+  return QS_RAW.map(q=>{
+    const shuffled=shuffle(q.ch);
+    const cor=shuffled.indexOf(q.ans);
+    return {...q, ch:shuffled, cor};
+  });
+}
+
+let QS=buildQS();
+const N=QS.length;
+const POS=[];
+for(let i=0;i<=N;i++) POS.push(3+i*(93/N));
+
+let cur=0,score=0,lives=3,streak=0,answered=false;
+
+/* ─── STARS ──────────────────────────────────────────────── */
+function drawStars(){
+  const c=document.getElementById('stars-c');
+  const W=c.offsetWidth||720,H=c.offsetHeight||460;
+  c.width=W;c.height=H;
+  const ctx=c.getContext('2d');
+  const cols=['#ffffff','#ffe8cc','#cce0ff','#ffeebb'];
+  for(let i=0;i<120;i++){
+    const x=Math.random()*W,y=Math.random()*H*0.6;
+    const r=Math.random()<0.2?1.2:0.6;
+    const a=0.2+Math.random()*0.8;
+    ctx.globalAlpha=a;
+    ctx.fillStyle=cols[Math.floor(Math.random()*cols.length)];
+    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ─── PIXEL CITY ─────────────────────────────────────────── */
+function drawCity(){
+  const canvas=document.getElementById('city-canvas');
+  const W=canvas.offsetWidth||720;
+  const H=330;
+  canvas.width=W;canvas.height=H;
+  const px=canvas.getContext('2d');
+  px.imageSmoothingEnabled=false;
+
+  function rect(x,y,w,h,col){px.fillStyle=col;px.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h))}
+  function win(x,y,w,h,lit){
+    rect(x,y,w,h,'#1a1208');
+    if(lit){
+      rect(x+1,y+1,w-2,h-2,Math.random()<0.15?'#ffe070':'#ffd060');
+    } else {
+      rect(x+1,y+1,w-2,h-2,'#0d0d18');
+    }
+  }
+  function sign(x,y,w,h,col,text,px2){
+    rect(x,y,w,h,col);
+    rect(x+1,y+1,w-2,1,lighten(col));
+  }
+  function lighten(hex){return hex} // simplified
+
+  /* FAR background buildings — very dark, silhouettes */
+  const farBuilds=[
+    {x:0,w:40,h:180},{x:35,w:30,h:140},{x:60,w:55,h:210},{x:108,w:35,h:160},
+    {x:140,w:50,h:190},{x:185,w:25,h:130},{x:205,w:45,h:175},{x:245,w:60,h:220},
+    {x:300,w:35,h:150},{x:330,w:55,h:200},{x:380,w:40,h:170},{x:415,w:30,h:140},
+    {x:440,w:65,h:230},{x:500,w:45,h:180},{x:540,w:35,h:160},{x:570,w:50,h:195},
+    {x:615,w:40,h:175},{x:650,w:55,h:200},{x:700,w:25,h:145},
+  ];
+  farBuilds.forEach(b=>{
+    const top=H-b.h;
+    rect(b.x,top,b.w,b.h,'#111122');
+    /* windows */
+    for(let row=top+6;row<H-10;row+=14){
+      for(let col=b.x+4;col<b.x+b.w-8;col+=10){
+        const lit=Math.random()<0.4;
+        win(col,row,6,8,lit);
+      }
+    }
+  });
+
+  /* MID buildings */
+  const builds=[
+    /* HÔTEL */
+    {x:10,w:80,h:240,face:'#1c2535',side:'#141820',wW:10,wH:13,wCols:5,wRows:10,
+     signCol:'#0a2060',signY:8,signH:14,signTxt:'HÔTEL',door:{x:30,w:20,h:26},
+     ledge:true},
+    /* BANQUE */
+    {x:100,w:60,h:185,face:'#1a2a1a',side:'#0f1a0f',wW:9,wH:11,wCols:4,wRows:8,
+     signCol:'#0a3010',signY:8,signH:13,signTxt:'BANQUE',door:{x:18,w:24,h:22},
+     ledge:false},
+    /* CENTRALE */
+    {x:170,w:95,h:260,face:'#1e1428',side:'#140e1c',wW:11,wH:14,wCols:5,wRows:11,
+     signCol:'#280860',signY:8,signH:14,signTxt:'CENTRALE',door:{x:34,w:27,h:28},
+     ledge:true},
+    /* AGENCE */
+    {x:275,w:65,h:195,face:'#281408',side:'#1c0e04',wW:9,wH:12,wCols:4,wRows:9,
+     signCol:'#401800',signY:8,signH:13,signTxt:'AGENCE',door:{x:20,w:25,h:24},
+     ledge:false},
+    /* ENTREPÔT */
+    {x:350,w:88,h:210,face:'#141428',side:'#0e0e1c',wW:11,wH:13,wCols:5,wRows:9,
+     signCol:'#001050',signY:8,signH:14,signTxt:'ENTREPÔT',door:{x:28,w:32,h:26},
+     ledge:true},
+    /* GROSSISTE */
+    {x:448,w:62,h:172,face:'#0e2018',side:'#081510',wW:9,wH:11,wCols:4,wRows:8,
+     signCol:'#003820',signY:8,signH:13,signTxt:'GROSSISTE',door:{x:18,w:26,h:22},
+     ledge:false},
+    /* CATEGORY MGT */
+    {x:520,w:70,h:188,face:'#201808',side:'#150f04',wW:9,wH:12,wCols:4,wRows:8,
+     signCol:'#3a1800',signY:8,signH:13,signTxt:'CATEG.MGT',door:{x:22,w:26,h:24},
+     ledge:true},
+    /* SRM / EDI */
+    {x:600,w:55,h:160,face:'#101024',side:'#0a0a18',wW:8,wH:11,wCols:4,wRows:7,
+     signCol:'#0a0040',signY:8,signH:12,signTxt:'SRM/EDI',door:{x:16,w:23,h:20},
+     ledge:false},
+    /* DISTRIBMAX — big boss */
+    {x:658,w:110,h:290,face:'#280808',side:'#1c0404',wW:12,wH:15,wCols:5,wRows:12,
+     signCol:'#700000',signY:8,signH:16,signTxt:'DISTRIBMAX',door:{x:38,w:34,h:32},
+     ledge:true,boss:true},
+  ];
+
+  builds.forEach(b=>{
+    const top=H-b.h;
+    /* side panel for 3D effect */
+    if(b.side){
+      const sw=Math.round(b.w*0.16);
+      rect(b.x+b.w,top,sw,b.h,b.side);
+      /* side windows */
+      for(let row=top+10;row<H-12;row+=16){
+        const lit=Math.random()<0.3;
+        rect(b.x+b.w+2,row,sw-4,9,lit?'#302010':'#0a0a15');
+        if(lit) rect(b.x+b.w+3,row+1,sw-6,7,'#ffc840');
+      }
+      /* 3D top edge */
+      rect(b.x,top,b.w,3,'#3a3a4a');
+      const tw=Math.round(b.w*0.16);
+      for(let i=0;i<tw;i++){
+        rect(b.x+b.w+i,top-i*0.7,1,3,'#2a2a3a');
+      }
+    }
+
+    /* face */
+    rect(b.x,top,b.w,b.h,b.face);
+
+    /* horizontal ledge lines */
+    if(b.ledge){
+      for(let row=top+30;row<H-20;row+=Math.round(b.h/5)){
+        rect(b.x,row,b.w,2,'rgba(255,255,255,0.04)');
+      }
+    }
+
+    /* windows grid */
+    const wStartX=b.x+7;
+    const wStartY=top+24;
+    const wStepX=Math.round((b.w-14)/(b.wCols));
+    const wStepY=16;
+    for(let row=0;row<b.wRows;row++){
+      for(let col=0;col<b.wCols;col++){
+        const wx=wStartX+col*wStepX;
+        const wy=wStartY+row*wStepY;
+        if(wy+b.wH>H-b.door.h-2) continue;
+        const litP=b.boss?0.7:0.45;
+        const lit=Math.random()<litP;
+        win(wx,wy,b.wW,b.wH,lit);
+        /* occasional orange lit variation */
+        if(lit && Math.random()<0.2){
+          rect(wx+1,wy+1,b.wW-2,b.wH-2,'#ffb020');
+        }
+      }
+    }
+
+    /* neon sign glow */
+    px.globalAlpha=0.18;
+    rect(b.x+2,top+b.signY-1,b.w-4,b.signH+2,b.signCol);
+    px.globalAlpha=1;
+    /* sign */
+    rect(b.x+2,top+b.signY,b.w-4,b.signH,b.signCol);
+    rect(b.x+2,top+b.signY,b.w-4,1,'rgba(255,255,255,0.15)');
+    /* sign text (pixelated dots) */
+    px.fillStyle='rgba(255,255,255,0.8)';
+    px.font=`bold ${b.boss?9:8}px monospace`;
+    px.textAlign='center';
+    px.textBaseline='middle';
+    px.fillText(b.signTxt,b.x+b.w/2,top+b.signY+b.signH/2);
+
+    /* doorway */
+    const dTop=H-b.door.h;
+    rect(b.x+b.door.x,dTop,b.door.w,b.door.h,'#0a0500');
+    rect(b.x+b.door.x+1,dTop+1,b.door.w-2,b.door.h-1,'#100800');
+    /* door frame */
+    rect(b.x+b.door.x-1,dTop-1,b.door.w+2,2,'rgba(255,200,80,0.3)');
+    rect(b.x+b.door.x-1,dTop-1,2,b.door.h+1,'rgba(255,200,80,0.2)');
+    rect(b.x+b.door.x+b.door.w-1,dTop-1,2,b.door.h+1,'rgba(255,200,80,0.2)');
+
+    /* boss building extras */
+    if(b.boss){
+      /* vertical neon strips */
+      px.globalAlpha=0.4;
+      rect(b.x+2,top,3,b.h,'#ff2020');
+      rect(b.x+b.w-5,top,3,b.h,'#ff2020');
+      px.globalAlpha=1;
+      /* rooftop */
+      rect(b.x+20,top-12,b.w-40,12,'#1c0404');
+      rect(b.x+b.w/2-4,top-24,8,14,'#280808');
+      rect(b.x+b.w/2-2,top-30,4,8,'#c00000');
+    }
+  });
+
+  /* Ground level details */
+  /* Streetlamps */
+  const lampPos=[60,155,245,340,440,535,625];
+  lampPos.forEach(x=>{
+    /* pole */
+    rect(x,H-38,3,38,'#3a3530');
+    /* arm */
+    rect(x-8,H-38,12,3,'#3a3530');
+    /* head */
+    rect(x-10,H-44,14,6,'#5a5040');
+    /* glow */
+    px.globalAlpha=0.6;
+    rect(x-9,H-43,12,4,'#ffe870');
+    px.globalAlpha=0.1;
+    px.beginPath();
+    px.arc(x-3,H-40,20,0,Math.PI*2);
+    px.fillStyle='#ffe870';
+    px.fill();
+    px.globalAlpha=1;
+  });
+
+  /* Distant city ambient glow at horizon */
+  px.globalAlpha=0.06;
+  for(let i=0;i<W;i+=4){
+    const h=2+Math.random()*8;
+    rect(i,H-h-2,3,h,'#ff8030');
+  }
+  px.globalAlpha=1;
+}
+
+/* ─── PIXEL HERO (commercial) ──────────────────────────── */
+function drawHero(canvas){
+  const W=40,H=64;
+  canvas.width=W;canvas.height=H;
+  const px=canvas.getContext('2d');
+  px.imageSmoothingEnabled=false;
+
+  function r(x,y,w,h,col,a=1){
+    px.globalAlpha=a;
+    px.fillStyle=col;
+    px.fillRect(x,y,w,h);
+    px.globalAlpha=1;
+  }
+
+  /* Shadow */
+  r(10,60,20,4,'rgba(0,0,0,0)',1);
+
+  /* SHOES */
+  r(9,56,10,6,'#1a1208');r(9,60,10,3,'#110d06');
+  r(21,56,10,6,'#1a1208');r(21,60,10,3,'#110d06');
+  r(8,57,2,5,'#241a0c');r(30,57,2,5,'#241a0c');
+
+  /* LEGS - trouser */
+  r(10,38,9,22,'#1e2c42');
+  r(21,38,9,22,'#1e2c42');
+  r(10,38,9,1,'#253550');r(21,38,9,1,'#253550');
+
+  /* Trouser crease */
+  r(14,40,1,18,'#182338');r(25,40,1,18,'#182338');
+
+  /* JACKET body */
+  r(7,20,26,22,'#1a2d48');
+  /* jacket lapels / darker center */
+  r(14,20,12,20,'#152540');
+  /* lapel whites */
+  r(15,20,5,12,'#e8e4dc');
+  r(20,20,5,12,'#e8e4dc');
+  r(15,20,5,1,'#c8c4bc');
+  /* Tie */
+  r(18,22,4,14,'#8b0000');
+  r(18,22,4,2,'#a00000');
+  r(18,34,4,2,'#6a0000');
+  /* tie knot */
+  r(17,21,6,3,'#9a0000');
+
+  /* Shirt collar */
+  r(15,19,10,4,'#f0ece4');
+  r(15,19,2,6,'#e8e4dc');r(23,19,2,6,'#e8e4dc');
+
+  /* Jacket buttons */
+  r(19,30,2,2,'#0d1e38');r(19,26,2,2,'#0d1e38');
+
+  /* Pocket square */
+  r(8,22,4,4,'#e8e0c8');r(9,21,3,2,'#fffaf0');
+
+  /* ARMS */
+  r(4,20,6,18,'#1a2d48');/* left */
+  r(30,20,6,18,'#1a2d48');/* right */
+  /* cuffs */
+  r(4,36,6,3,'#f0ece4');r(30,36,6,3,'#f0ece4');
+  /* hands */
+  r(5,39,5,5,'#d4a882');r(30,39,5,5,'#d4a882');
+
+  /* BRIEFCASE in right hand */
+  r(30,41,12,9,'#8B6914');
+  r(31,42,10,7,'#9a7520');
+  r(30,41,12,1,'#5a4510');r(30,49,12,1,'#5a4510');
+  r(30,41,1,9,'#5a4510');r(41,41,1,9,'#5a4510');
+  r(34,40,4,2,'#5a4510');/* handle */
+  r(35,38,2,4,'#4a3810');
+  r(33,43,6,1,'#7a6010');/* clasp line */
+  r(35,42,2,3,'#6a5010');/* clasp */
+
+  /* NECK */
+  r(17,15,6,6,'#d4a882');
+
+  /* HEAD */
+  r(12,4,16,16,'#d4a882');
+  /* ear */
+  r(11,8,2,5,'#c49870');r(27,8,2,5,'#c49870');
+  /* shadow under chin */
+  r(12,18,16,2,'#b88866');
+
+  /* HAIR — dark short businesslike */
+  r(11,3,18,6,'#1a1008');
+  r(11,3,18,2,'#241a0c');
+  r(12,2,16,3,'#1a1008');
+  /* parting */
+  r(19,3,1,5,'#2a1e10');
+  /* sideburns */
+  r(11,7,2,4,'#1a1008');r(27,7,2,4,'#1a1008');
+
+  /* EYES */
+  r(15,10,3,2,'#f0ece4');r(22,10,3,2,'#f0ece4');
+  r(16,10,2,2,'#1a1008');r(23,10,2,2,'#1a1008');
+  r(16,10,1,1,'#111');r(23,10,1,1,'#111');
+  /* eye whites */
+  r(15,10,1,1,'#fff');r(22,10,1,1,'#fff');
+  /* eyebrows */
+  r(14,8,5,1,'#1a1008');r(21,8,5,1,'#1a1008');
+
+  /* NOSE */
+  r(18,13,2,2,'#c49870');r(17,14,1,1,'#b08060');r(20,14,1,1,'#b08060');
+
+  /* MOUTH — subtle confident smile */
+  r(16,16,8,1,'#a07060');
+  r(16,15,2,1,'#c49870');r(22,15,2,1,'#c49870');
+
+  /* GLASSES */
+  r(14,10,5,4,'rgba(100,160,255,0.15)');
+  r(21,10,5,4,'rgba(100,160,255,0.15)');
+  r(14,10,5,1,'#2a3a4a');r(14,13,5,1,'#2a3a4a');
+  r(14,10,1,4,'#2a3a4a');r(18,10,1,4,'#2a3a4a');
+  r(21,10,5,1,'#2a3a4a');r(21,13,5,1,'#2a3a4a');
+  r(25,10,1,4,'#2a3a4a');
+  r(19,11,2,1,'#2a3a4a');/* bridge */
+  /* temples */
+  r(11,11,3,1,'#2a3a4a');r(26,11,3,1,'#2a3a4a');
+}
+
+/* ─── CHECKPOINTS ─────────────────────────────────────── */
+function buildCPs(){
+  const layer=document.getElementById('cps-layer');
+  const labels=['Canal','Strat.','Légal','Réf.','Prix','Impl.','Anim.','Pilotage','KPIs','FIN'];
+  const cpIdx=[];
+  const step=Math.floor(N/9);
+  for(let i=0;i<9;i++) cpIdx.push(i*step);
+  cpIdx.push(N);
+
+  cpIdx.forEach((qi,ci)=>{
+    const pct=POS[Math.min(qi,N)];
+    const d=document.createElement('div');
+    d.className='cp '+(ci===0?'active':'locked');
+    d.id='cp'+ci;
+    d.style.left=pct+'%';
+    d.innerHTML=`<div class="cp-pip"></div><div class="cp-lbl">${labels[ci]||''}</div>`;
+    layer.appendChild(d);
+  });
+
+  /* path dots */
+  const pd=document.getElementById('path-dots');
+  for(let i=0;i<=N;i++){
+    const dd=document.createElement('div');
+    dd.className='path-dot';
+    dd.style.left=POS[i]+'%';
+    pd.appendChild(dd);
+  }
+
+  window._cpIdx=cpIdx;
+}
+
+function updateCPs(){
+  const cpIdx=window._cpIdx||[];
+  cpIdx.forEach((qi,ci)=>{
+    const el=document.getElementById('cp'+ci);
+    if(!el) return;
+    if(cur>qi) el.className='cp done';
+    else if(ci===0&&cur===0) el.className='cp active';
+    else if(ci>0&&cur>cpIdx[ci-1]&&cur<=qi) el.className='cp active';
+    else el.className='cp locked';
+  });
+}
+
+/* ─── HERO POSITION ─────────────────────────────────────── */
+function setHero(pos){
+  document.getElementById('hero-wrap').style.left=pos+'%';
+  document.getElementById('hero-shadow').style.left=pos+'%';
+}
+
+/* ─── GAME LOGIC ─────────────────────────────────────────── */
+function startGame(){
+  QS=buildQS(); /* re-shuffle on each new game */
+  document.getElementById('s-start').style.display='none';
+  document.getElementById('s-q').style.display='block';
+  setHero(POS[0]);
+  renderQ();
+}
+
+function renderQ(){
+  answered=false;
+  const s=QS[cur];
+  const n=String(cur+1).padStart(2,'0');
+  document.getElementById('h-step').textContent=`${n}/${N}`;
+  const stk=streak>=3?`🔥 ×${streak}`:'';
+  document.getElementById('streak-label').textContent=stk;
+  document.getElementById('s-q').innerHTML=`
+<div class="ztag" style="background:${s.bg};color:${s.col};border:1px solid ${s.col}40">
+  <span>${s.ic}</span><span>${s.z}</span>
+</div>
+<div class="qtxt">${s.q}</div>
+<div class="choices">
+  ${s.ch.map((c,i)=>`
+  <button class="cbtn" id="cb${i}" onclick="answer(${i})">
+    <span class="cltr">${String.fromCharCode(65+i)}</span>
+    <span>${c}</span>
+  </button>`).join('')}
+</div>
+<div id="fb"></div>`;
+}
+
+function answer(idx){
+  if(answered) return;
+  answered=true;
+  document.querySelectorAll('.cbtn').forEach(b=>b.disabled=true);
+  const s=QS[cur];
+  if(idx===s.cor){
+    document.getElementById('cb'+idx).classList.add('ok');
+    streak++;
+    const bonus=streak>=3?30:streak===2?15:0;
+    const pts=70+bonus+(lives===3?20:0);
+    score+=pts;
+    const sc=String(score).padStart(5,'0');
+    document.getElementById('h-score').textContent=sc;
+    document.getElementById('xpf').style.width=Math.min(100,Math.round((score/(N*120))*100))+'%';
+    document.getElementById('fb').innerHTML=`
+    <div class="fb ok">► CORRECT +${pts}pts${bonus?' [SÉRIE +'+bonus+']':''}<br>${s.ex}</div>
+    <button class="nxt" onclick="advance()">CONTINUER ►</button>`;
+    const hw=document.getElementById('hero-wrap');
+    hw.classList.add('jump');
+    setTimeout(()=>hw.classList.remove('jump'),520);
+  } else {
+    document.getElementById('cb'+idx).classList.add('ko');
+    document.getElementById('cb'+s.cor).classList.add('ok');
+    streak=0;lives--;
+    ['hp0','hp1','hp2'].forEach((id,i)=>{if(i>=lives) document.getElementById(id).classList.add('off')});
+    document.getElementById('streak-label').textContent='';
+    document.getElementById('fb').innerHTML=`<div class="fb ko">✗ INCORRECT — ${s.ex}</div>`;
+    if(lives>0){
+      document.getElementById('fb').innerHTML+=`<button class="nxt" onclick="advance()">CONTINUER ►</button>`;
+    } else {
+      setTimeout(()=>endGame(false),1300);
+    }
+  }
+}
+
+function advance(){
+  cur++;
+  setHero(POS[Math.min(cur,N)]);
+  updateCPs();
+  if(cur>=N){setTimeout(()=>endGame(true),950);return;}
+  setTimeout(renderQ,650);
+}
+
+function endGame(win){
+  document.getElementById('s-q').style.display='none';
+  const es=document.getElementById('s-end');
+  es.style.display='block';
+  const pct=Math.round((score/(N*120))*100);
+  const medal=pct>=85?'🥇':pct>=65?'🥈':pct>=45?'🥉':'💼';
+  const msg=win
+    ?(pct>=85?'PERFORMANCE PARFAITE — Maxime décroche un poste de directeur commercial.':
+      pct>=65?'CONTRAT SIGNÉ — DistribMax est convaincu.':
+      'CONTRAT DE JUSTESSE — Des lacunes restent à combler.')
+    :'MISSION ÉCHOUÉE — Maxime rentre bredouille. Révisez et retentez !';
+  es.innerHTML=`<div class="sscreen">
+    <div style="font-size:40px;margin-bottom:8px">${medal}</div>
+    <h2>${win?'[ CONTRAT SIGNÉ ]':'[ MISSION ÉCHOUÉE ]'}</h2>
+    <div class="sbig">${String(score).padStart(5,'0')} <span style="font-size:13px;color:#666">${pct}%</span></div>
+    <p style="font-family:monospace;font-size:11px;color:#8888aa;letter-spacing:0.5px">${msg}</p>
+    <button class="bbtn" onclick="restart()">► REJOUER</button>
+  </div>`;
+}
+
+function restart(){
+  cur=0;score=0;lives=3;streak=0;answered=false;
+  QS=buildQS();
+  document.getElementById('h-score').textContent='00000';
+  document.getElementById('h-step').textContent='01/20';
+  document.getElementById('xpf').style.width='0%';
+  document.getElementById('streak-label').textContent='';
+  ['hp0','hp1','hp2'].forEach(id=>document.getElementById(id).classList.remove('off'));
+  setHero(POS[0]);
+  updateCPs();
+  document.getElementById('s-end').style.display='none';
+  document.getElementById('s-q').style.display='block';
+  renderQ();
+}
+
+/* ─── ROAD MARKS ─────────────────────────────────────────── */
+function buildRoad(){
+  const c=document.getElementById('road-marks');
+  for(let i=0;i<18;i++){
+    const d=document.createElement('div');
+    d.className='road-mark';
+    d.style.cssText=`left:${i*6}%;width:4%;height:3px`;
+    c.appendChild(d);
+  }
+}
+
+/* ─── INIT ────────────────────────────────────────────────── */
+window.addEventListener('load',()=>{
+  drawStars();
+  drawCity();
+  drawHero(document.getElementById('hero-canvas'));
+  buildCPs();
+  buildRoad();
+  setHero(POS[0]);
+});
+window.addEventListener('resize',()=>{
+  drawStars();
+  drawCity();
+});
+</script>
+</body>
+</html>
