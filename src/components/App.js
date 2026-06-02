@@ -483,7 +483,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [results,setResults]=useState({})
   const [loading,setLoading]=useState(true)
   const [driveItem,setDriveItem]=useState(null)
-  const [activeModule,setActiveModule]=useState(null) // {name, type} or null
+  const [activeSection,setActiveSection]=useState(null) // {name} = selected matiere
+  const [activeModule,setActiveModule]=useState(null)   // {name, type} = selected module
   const [activeQuiz,setActiveQuiz]=useState(null)
   const [qState,setQState]=useState(null)
   const [showPwd,setShowPwd]=useState(student.must_change_password)
@@ -716,42 +717,69 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             {driveItem?(
               <DriveViewer url={driveItem.drive_url} title={driveItem.title} onBack={()=>setDriveItem(null)} accent={tab==='videos'?G.accent:G.accentCyan}/>
             ):activeModule?(
+              /* LEVEL 3 — resources list */
               <>
-                <button onClick={()=>setActiveModule(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',marginBottom:10,fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
-                <div className="syne" style={{fontWeight:700,fontSize:15,marginBottom:12}}>{activeModule.name}</div>
-                {activeModule.type==='videos'&&videos.filter(v=>v.module===activeModule.name).map(v=>(
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+                  <button onClick={()=>setActiveModule(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>←</button>
+                  <div style={{color:G.muted,fontSize:12}}>{activeSection?.name} /</div>
+                  <div className="syne" style={{fontWeight:700,fontSize:14}}>{activeModule.name}</div>
+                </div>
+                {activeModule.type==='videos'&&videos.filter(v=>v.section===activeSection?.name&&(v.module||'Général')===activeModule.name).map(v=>(
                   <div key={v.id} onClick={()=>setDriveItem(v)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,overflow:'hidden',marginBottom:9}}>
                     <div style={{height:70,background:`linear-gradient(135deg,${G.accent}33,${G.accentHot}22)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>{v.emoji||'🎬'}</div>
                     <div style={{padding:12}}><div style={{fontWeight:500,fontSize:13,marginBottom:3}}>{v.title}</div><div style={{color:G.muted,fontSize:12}}>{v.duration}</div></div>
                   </div>
                 ))}
-                {activeModule.type==='fiches'&&fiches.filter(f=>f.module===activeModule.name).map(f=>(
+                {activeModule.type==='fiches'&&fiches.filter(f=>f.section===activeSection?.name&&(f.module||'Général')===activeModule.name).map(f=>(
                   <div key={f.id} onClick={()=>setDriveItem(f)} className="hov" style={{background:G.card,border:`1px solid ${(f.color||G.accent)+'33'}`,borderRadius:13,padding:14,marginBottom:9,borderLeft:`3px solid ${f.color||G.accent}`}}>
                     <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{f.title}</div>
                     <div style={{color:G.muted,fontSize:12}}>Appuyer pour lire →</div>
                   </div>
                 ))}
               </>
+            ):activeSection?(
+              /* LEVEL 2 — modules list for this section */
+              <>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+                  <button onClick={()=>setActiveSection(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>←</button>
+                  <div className="syne" style={{fontWeight:700,fontSize:15}}>{activeSection.name}</div>
+                </div>
+                {(()=>{
+                  const items=(tab==='videos'?videos:fiches).filter(i=>i.section===activeSection.name)
+                  const modules=[...new Set(items.map(i=>i.module||'Général'))].sort()
+                  return modules.map(mod=>{
+                    const modItems=items.filter(i=>(i.module||'Général')===mod)
+                    return (
+                      <div key={mod} onClick={()=>setActiveModule({name:mod,type:tab})} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,marginBottom:9,cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{width:38,height:38,borderRadius:10,background:`${G.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{tab==='videos'?'🎬':'📄'}</div>
+                        <div style={{flex:1}}>
+                          <div className="syne" style={{fontWeight:700,fontSize:13}}>{mod}</div>
+                          <div style={{color:G.muted,fontSize:12,marginTop:2}}>{modItems.length} ressource{modItems.length>1?'s':''}</div>
+                        </div>
+                        <div style={{color:G.accent,fontSize:16}}>→</div>
+                      </div>
+                    )
+                  })
+                })()}
+              </>
             ):(
+              /* LEVEL 1 — sections (matières) */
               <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>{tab==='videos'?'🎬 Vidéos':'📄 Fiches de révision'}</div>
                 {(()=>{
                   const items=tab==='videos'?videos:fiches
                   if(!items.length) return <div style={{color:G.muted,fontSize:13}}>Aucun contenu pour ta classe.</div>
-                  const modules=[...new Set(items.map(i=>i.module||'Général'))].sort()
-                  return modules.map(mod=>{
-                    const modItems=items.filter(i=>(i.module||'Général')===mod)
-                    const nbVideos=tab==='videos'?modItems.length:0
-                    const nbFiches=tab==='fiches'?modItems.length:0
+                  const sections=[...new Set(items.map(i=>i.section||'Général'))].sort()
+                  return sections.map(sec=>{
+                    const secItems=items.filter(i=>(i.section||'Général')===sec)
+                    const nbMods=[...new Set(secItems.map(i=>i.module||'Général'))].length
                     return (
-                      <div key={mod} onClick={()=>setActiveModule({name:mod,type:tab==='videos'?'videos':'fiches'})} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:16,marginBottom:9,cursor:'pointer'}}>
+                      <div key={sec} onClick={()=>setActiveSection({name:sec})} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:16,marginBottom:9,cursor:'pointer'}}>
                         <div style={{display:'flex',alignItems:'center',gap:12}}>
                           <div style={{width:42,height:42,borderRadius:11,background:`linear-gradient(135deg,${G.accent}33,${G.accentHot}22)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{tab==='videos'?'🎬':'📄'}</div>
                           <div style={{flex:1}}>
-                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{mod}</div>
-                            <div style={{color:G.muted,fontSize:12,marginTop:3}}>
-                              {tab==='videos'?`${nbVideos} vidéo${nbVideos>1?'s':''}`:  `${nbFiches} fiche${nbFiches>1?'s':''}`}
-                            </div>
+                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{sec}</div>
+                            <div style={{color:G.muted,fontSize:12,marginTop:3}}>{nbMods} module{nbMods>1?'s':''} · {secItems.length} ressource{secItems.length>1?'s':''}</div>
                           </div>
                           <div style={{color:G.accent,fontSize:16}}>→</div>
                         </div>
@@ -766,8 +794,11 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
         {tab==='quiz'&&(
           <div className="fade-up">
-            {activeModule&&!activeQuiz&&(
-              <button onClick={()=>setActiveModule(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',marginBottom:10,fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour aux modules</button>
+            {(activeSection||activeModule)&&!activeQuiz&&(
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:10}}>
+                <button onClick={()=>{ if(activeModule){setActiveModule(null)}else{setActiveSection(null)} }} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>← Retour</button>
+                {activeSection&&<span style={{color:G.muted,fontSize:12}}>{activeSection.name}{activeModule?' / '+activeModule.name:''}</span>}
+              </div>
             )}
             {activeQuiz&&qState&&!qState.done?(
               <div>
@@ -798,44 +829,45 @@ function StudentApp({student,onLogout,onPwdSaved}) {
                 {!quizzes.length&&<div style={{color:G.muted,fontSize:13}}>Aucun quiz pour ta classe.</div>}
                 {(()=>{
                   if(!quizzes.length) return null
-                  const modules=[...new Set(quizzes.map(q=>q.module||'Général'))].sort()
-                  if(modules.length===1&&modules[0]==='Général'){
-                    // No modules set: show flat list
-                    return quizzes.map(q=>{
-                      const done=results[q.id]; const passed=done&&done.score>=q.pass_score
-                      return (
-                        <div key={q.id} style={{background:G.card,border:`1px solid ${passed?G.accentGreen+'44':G.border}`,borderRadius:13,padding:14,marginBottom:9}}>
-                          <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:7}}>
-                            <div style={{fontWeight:600,fontSize:13,flex:1}}>{q.title}</div>
-                            {passed&&<Bdg color={G.accentGreen}>✓ Validé</Bdg>}
-                            {done&&!passed&&<Bdg color={G.gold}>Réessayer</Bdg>}
-                          </div>
-                          <div style={{color:G.muted,fontSize:12,marginBottom:9}}>{(q.quiz_questions||[]).length} question{(q.quiz_questions||[]).length>1?'s':''} · Seuil : {q.pass_score}%{done&&<span style={{marginLeft:7,color:done.score>=q.pass_score?G.accentGreen:G.accentHot}}>· Dernier : {done.score}%</span>}</div>
-                          {!passed&&<Btn sm onClick={()=>startQuiz(q)}>Commencer ▶</Btn>}
-                        </div>
-                      )
-                    })
-                  }
-                  // Show by module
-                  if(!activeModule) return modules.map(mod=>{
-                    const modQ=quizzes.filter(q=>(q.module||'Général')===mod)
-                    const done=modQ.filter(q=>results[q.id]).length
-                    const validated=modQ.filter(q=>results[q.id]&&results[q.id].score>=q.pass_score).length
+                  const sections=[...new Set(quizzes.map(q=>q.section||'Général'))].sort()
+                  // LEVEL 1: sections
+                  if(!activeSection&&!activeModule) return sections.map(sec=>{
+                    const secQ=quizzes.filter(q=>(q.section||'Général')===sec)
+                    const nbMods=[...new Set(secQ.map(q=>q.module||'Général'))].length
                     return (
-                      <div key={mod} onClick={()=>setActiveModule({name:mod,type:'quizzes'})} className="hov" style={{background:G.card,border:`1px solid ${G.gold}33`,borderRadius:13,padding:16,marginBottom:9,cursor:'pointer'}}>
+                      <div key={sec} onClick={()=>setActiveSection({name:sec})} className="hov" style={{background:G.card,border:`1px solid ${G.gold}33`,borderRadius:13,padding:16,marginBottom:9,cursor:'pointer'}}>
                         <div style={{display:'flex',alignItems:'center',gap:12}}>
                           <div style={{width:42,height:42,borderRadius:11,background:G.gold+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>🧠</div>
                           <div style={{flex:1}}>
-                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{mod}</div>
-                            <div style={{color:G.muted,fontSize:12,marginTop:3}}>{modQ.length} quiz · {validated} validé{validated>1?'s':''}</div>
+                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{sec}</div>
+                            <div style={{color:G.muted,fontSize:12,marginTop:3}}>{nbMods} module{nbMods>1?'s':''} · {secQ.length} quiz</div>
                           </div>
                           <div style={{color:G.accent,fontSize:16}}>→</div>
                         </div>
                       </div>
                     )
                   })
-                  // Inside a module
-                  return quizzes.filter(q=>(q.module||'Général')===activeModule?.name).map(q=>{
+                  // LEVEL 2: modules within section
+                  if(activeSection&&!activeModule){
+                    const secQ=quizzes.filter(q=>(q.section||'Général')===activeSection.name)
+                    const modules=[...new Set(secQ.map(q=>q.module||'Général'))].sort()
+                    return modules.map(mod=>{
+                      const modQ=secQ.filter(q=>(q.module||'Général')===mod)
+                      const validated=modQ.filter(q=>results[q.id]&&results[q.id].score>=q.pass_score).length
+                      return (
+                        <div key={mod} onClick={()=>setActiveModule({name:mod,type:'quizzes'})} className="hov" style={{background:G.card,border:`1px solid ${G.gold}33`,borderRadius:13,padding:14,marginBottom:9,cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{width:38,height:38,borderRadius:10,background:G.gold+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🧠</div>
+                          <div style={{flex:1}}>
+                            <div className="syne" style={{fontWeight:700,fontSize:13}}>{mod}</div>
+                            <div style={{color:G.muted,fontSize:12,marginTop:2}}>{modQ.length} quiz · {validated} validé{validated>1?'s':''}</div>
+                          </div>
+                          <div style={{color:G.accent,fontSize:16}}>→</div>
+                        </div>
+                      )
+                    })
+                  }
+                  // LEVEL 3: quizzes
+                  return quizzes.filter(q=>(q.section||'Général')===activeSection?.name&&(q.module||'Général')===activeModule?.name).map(q=>{
                     const done=results[q.id]; const passed=done&&done.score>=q.pass_score
                     return (
                       <div key={q.id} style={{background:G.card,border:`1px solid ${passed?G.accentGreen+'44':G.border}`,borderRadius:13,padding:14,marginBottom:9}}>
@@ -1033,7 +1065,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false);if(t.id!=='videos'&&t.id!=='fiches'&&t.id!=='quiz')setActiveModule(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false);if(t.id!=='videos'&&t.id!=='fiches'&&t.id!=='quiz'){setActiveModule(null);setActiveSection(null)}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
@@ -1575,28 +1607,42 @@ function TeacherApp({onLogout}) {
                     ...fiches.map(i=>({...i,_type:'fiche',_icon:'📄',_color:G.accentCyan})),
                     ...quizzes.map(i=>({...i,_type:'quiz',_icon:'🧠',_color:G.gold})),
                   ]
-                  const modules=[...new Set(allItems.map(i=>i.module||'Général'))].sort()
                   if(!allItems.length) return <div style={{color:G.muted,fontSize:13}}>Aucun contenu publié.</div>
-                  return modules.map(mod=>{
-                    const modItems=allItems.filter(i=>(i.module||'Général')===mod)
-                    const nbV=modItems.filter(i=>i._type==='video').length
-                    const nbF=modItems.filter(i=>i._type==='fiche').length
-                    const nbQ=modItems.filter(i=>i._type==='quiz').length
-                    const isOpen=openModule===mod
+                  const sections=[...new Set(allItems.map(i=>i.section||'Général'))].sort()
+                  return sections.map(sec=>{
+                    const secItems=allItems.filter(i=>(i.section||'Général')===sec)
+                    const modules=[...new Set(secItems.map(i=>i.module||'Général'))].sort()
+                    const isSecOpen=openModule&&openModule.startsWith('sec-'+sec)
                     return (
-                      <div key={mod} style={{marginBottom:9}}>
-                        <div onClick={()=>setOpenModule(isOpen?null:mod)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:12,padding:'12px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:11}}>
+                      <div key={sec} style={{marginBottom:9}}>
+                        {/* Section header */}
+                        <div onClick={()=>setOpenModule(isSecOpen?null:'sec-'+sec)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}22`,borderRadius:12,padding:'12px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:11}}>
                           <div style={{flex:1}}>
-                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{mod}</div>
-                            <div style={{display:'flex',gap:8,marginTop:4,flexWrap:'wrap'}}>
-                              {nbV>0&&<span style={{fontSize:11,color:G.accent}}>🎬 {nbV} vidéo{nbV>1?'s':''}</span>}
-                              {nbF>0&&<span style={{fontSize:11,color:G.accentCyan}}>📄 {nbF} fiche{nbF>1?'s':''}</span>}
-                              {nbQ>0&&<span style={{fontSize:11,color:G.gold}}>🧠 {nbQ} quiz</span>}
-                            </div>
+                            <div className="syne" style={{fontWeight:800,fontSize:14}}>{sec}</div>
+                            <div style={{color:G.muted,fontSize:11,marginTop:3}}>{modules.length} module{modules.length>1?'s':''} · {secItems.length} ressource{secItems.length>1?'s':''}</div>
                           </div>
-                          <div style={{color:G.muted,fontSize:18,transition:'transform .2s',transform:isOpen?'rotate(90deg)':'none'}}>›</div>
+                          <div style={{color:G.muted,fontSize:18,transition:'transform .2s',transform:isSecOpen?'rotate(90deg)':'none'}}>›</div>
                         </div>
-                        {isOpen&&(
+                        {isSecOpen&&modules.map(mod=>{
+                          const modItems=secItems.filter(i=>(i.module||'Général')===mod)
+                          const nbV=modItems.filter(i=>i._type==='video').length
+                          const nbF=modItems.filter(i=>i._type==='fiche').length
+                          const nbQ=modItems.filter(i=>i._type==='quiz').length
+                          const isOpen=openModule==='mod-'+sec+'-'+mod
+                          return (
+                          <div key={mod} style={{marginLeft:10,marginTop:5}}>
+                            <div onClick={()=>setOpenModule(isOpen?'sec-'+sec:'mod-'+sec+'-'+mod)} className="hov" style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,padding:'10px 13px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
+                              <div style={{flex:1}}>
+                                <div className="syne" style={{fontWeight:700,fontSize:13}}>{mod}</div>
+                                <div style={{display:'flex',gap:7,marginTop:3,flexWrap:'wrap'}}>
+                                  {nbV>0&&<span style={{fontSize:10,color:G.accent}}>🎬 {nbV}</span>}
+                                  {nbF>0&&<span style={{fontSize:10,color:G.accentCyan}}>📄 {nbF}</span>}
+                                  {nbQ>0&&<span style={{fontSize:10,color:G.gold}}>🧠 {nbQ}</span>}
+                                </div>
+                              </div>
+                              <div style={{color:G.muted,fontSize:16,transition:'transform .2s',transform:isOpen?'rotate(90deg)':'none'}}>›</div>
+                            </div>
+                            {isOpen&&(
                           <div style={{marginTop:4,display:'flex',flexDirection:'column',gap:5,paddingLeft:8}}>
                             {modItems.map(item=>{
                               const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
@@ -1620,7 +1666,9 @@ function TeacherApp({onLogout}) {
                               )
                             })}
                           </div>
-                        )}
+                          </div>
+                          </div>
+                        )})}
                       </div>
                     )
                   })
