@@ -684,7 +684,8 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
       </div>
 
-      <div className="app-scroll" style={{padding:16}}>
+      <div style={{flex:1,position:'relative',minHeight:0,display:'flex',flexDirection:'column'}}>
+      <div className="app-scroll" style={{padding:16,flex:1}}>
 
         {tab==='home'&&!driveItem&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:13}}>
@@ -852,15 +853,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             )}
           </div>
         )}
-        {tab==='game'&&(
-          <div style={{position:'absolute',inset:0,zIndex:5,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
-            <iframe
-              src="/game.html"
-              style={{flex:1,width:'100%',border:'none',display:'block',minHeight:0}}
-              title="Jeu RPG pédagogique"
-            />
-          </div>
-        )}
+
 
         {tab==='msgs'&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
@@ -891,6 +884,12 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         )}
       </div>
 
+      {tab==='game'&&(
+        <div style={{position:'absolute',inset:0,zIndex:10,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
+          <iframe src="/game.html" style={{flex:1,width:'100%',border:'none',display:'block'}} title="Jeu"/>
+        </div>
+      )}
+      </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
           <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
@@ -1264,7 +1263,8 @@ function TeacherApp({onLogout}) {
         <button onClick={onLogout} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:15}} title="Déconnexion">🚪</button>
       </div>
 
-      <div className="app-scroll" style={{padding:16}}>
+      <div style={{flex:1,position:'relative',minHeight:0,display:'flex',flexDirection:'column'}}>
+      <div className="app-scroll" style={{padding:16,flex:1}}>
 
         {/* DASHBOARD */}
         {tab==='dashboard'&&(
@@ -1583,16 +1583,7 @@ function TeacherApp({onLogout}) {
           </div>
         )}
 
-        {/* GAME */}
-        {tab==='game'&&(
-          <div style={{position:'absolute',inset:0,zIndex:5,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
-            <iframe
-              src="/game.html"
-              style={{flex:1,width:'100%',border:'none',display:'block',minHeight:0}}
-              title="Jeu RPG pédagogique"
-            />
-          </div>
-        )}
+
 
         {/* ADD */}
         {tab==='add'&&(
@@ -1695,6 +1686,12 @@ function TeacherApp({onLogout}) {
         )}
       </div>
 
+      {tab==='game'&&(
+        <div style={{position:'absolute',inset:0,zIndex:10,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
+          <iframe src="/game.html" style={{flex:1,width:'100%',border:'none',display:'block'}} title="Jeu"/>
+        </div>
+      )}
+      </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
           <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
