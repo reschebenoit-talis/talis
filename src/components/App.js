@@ -100,6 +100,554 @@ const parseAtts = (atts) => {
 const fmtSize = b => b>1048576?`${(b/1048576).toFixed(1)} Mo`:`${Math.round(b/1024)} Ko`
 const CLASS_COLORS = [G.accent,G.accentHot,G.accentGreen,G.accentCyan,G.gold,'#A78BFA','#FB923C','#34D399']
 
+
+// ─── EMBEDDED GAME ────────────────────────────────────────────────────────────
+const GAME_HTML = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --font-sans: 'DM Sans', sans-serif;
+  --color-background-primary: #1A1A26;
+  --color-background-secondary: #12121A;
+  --color-background-success: #0d2b0d;
+  --color-background-danger: #2b0d0d;
+  --color-border-primary: #4A4A6A;
+  --color-border-secondary: #2A2A3E;
+  --color-border-tertiary: #2A2A3E;
+  --color-border-success: #43E97B55;
+  --color-border-danger: #FF658455;
+  --color-text-primary: #F0F0FF;
+  --color-text-secondary: #7A7A9D;
+  --color-text-success: #43E97B;
+  --color-text-danger: #FF6584;
+}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&display=swap');
+body { margin:0; padding:12px; background:#0A0A0F; font-family:'DM Sans',sans-serif; }
+*{box-sizing:border-box;margin:0;padding:0}
+#G{font-family:var(--font-sans);width:100%}
+
+#scene{
+  position:relative;width:100%;height:420px;overflow:hidden;
+  border-radius:12px 12px 0 0;
+  border:0.5px solid var(--color-border-tertiary);
+  background:#0d1b2a;
+}
+
+#sky-bg{
+  position:absolute;inset:0;
+  background:#0d1b2a;
+}
+.star-dot{position:absolute;border-radius:50%;background:#fff}
+
+#ground-plane{
+  position:absolute;bottom:0;left:0;right:0;height:200px;
+  background:#1a1410;
+  clip-path:polygon(0 60px,100% 0,100% 100%,0 100%);
+}
+#road-surface{
+  position:absolute;bottom:0;left:0;right:0;height:160px;
+  background:#242018;
+  clip-path:polygon(0 80px,100% 20px,100% 100%,0 100%);
+}
+#road-center{
+  position:absolute;bottom:0;left:0;right:0;height:4px;
+  background:repeating-linear-gradient(90deg,#c8a050 0,#c8a050 28px,transparent 28px,transparent 52px);
+  bottom:70px;
+}
+#sidewalk-edge{
+  position:absolute;left:0;right:0;height:6px;bottom:155px;
+  background:#3a3530;
+  clip-path:polygon(0 0,100% 2px,100% 6px,0 6px);
+}
+
+#street-layer{position:absolute;inset:0;pointer-events:none}
+#buildings-layer{position:absolute;bottom:145px;left:0;right:0;height:280px}
+
+#hero-wrap{
+  position:absolute;bottom:148px;
+  width:52px;height:80px;
+  transition:left 0.9s cubic-bezier(.4,0,.2,1);
+  z-index:30;transform:translateX(-50%);
+}
+#hero-svg{width:52px;height:80px}
+
+.cp{
+  position:absolute;bottom:165px;
+  transform:translateX(-50%);
+  z-index:20;
+}
+.cp-ring{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:500;color:#fff;
+  border:2px solid rgba(255,255,255,0.3);
+  cursor:pointer;transition:transform 0.2s;
+  margin:0 auto;
+}
+.cp-ring:hover{transform:scale(1.15)}
+.cp-lbl{
+  font-size:9px;color:rgba(255,255,255,0.6);
+  text-align:center;margin-top:4px;
+  font-family:var(--font-sans);
+  background:rgba(0,0,0,0.5);padding:2px 5px;border-radius:3px;
+  white-space:nowrap;
+}
+.active-cp .cp-ring{background:#185FA5;border-color:#85B7EB;animation:cp-pulse 1.6s infinite}
+.done-cp .cp-ring{background:#27500A;border-color:#97C459}
+.lock-cp .cp-ring{background:#444441;border-color:#5F5E5A;cursor:default}
+.lock-cp .cp-ring:hover{transform:none}
+@keyframes cp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(55,138,221,.6)}60%{box-shadow:0 0 0 10px rgba(55,138,221,0)}}
+
+#hud{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 18px;
+  background:var(--color-background-secondary);
+  border-left:0.5px solid var(--color-border-tertiary);
+  border-right:0.5px solid var(--color-border-tertiary);
+}
+.hud-g{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--color-text-secondary)}
+.hud-v{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.hp{width:11px;height:11px;border-radius:50%;display:inline-block;background:#E24B4A;transition:background .3s}
+.hp.off{background:#5F5E5A}
+.xpw{width:70px;height:5px;background:var(--color-border-tertiary);border-radius:3px;overflow:hidden}
+.xpf{height:100%;background:#378ADD;border-radius:3px;transition:width .5s}
+
+#panel{
+  border:0.5px solid var(--color-border-tertiary);border-top:none;
+  border-radius:0 0 12px 12px;
+  background:var(--color-background-primary);
+  min-height:260px;
+}
+#scr{padding:22px 26px}
+
+.ztag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:500;padding:4px 12px;border-radius:20px;margin-bottom:12px;
+}
+.qtxt{font-size:15px;font-weight:500;color:var(--color-text-primary);line-height:1.6;margin-bottom:16px}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cbtn{
+  text-align:left;padding:10px 14px;
+  border:0.5px solid var(--color-border-secondary);
+  border-radius:10px;background:var(--color-background-primary);
+  font-size:12px;color:var(--color-text-primary);cursor:pointer;
+  transition:all .15s;display:flex;align-items:flex-start;gap:8px;line-height:1.45;
+}
+.cbtn:hover:not(:disabled){background:var(--color-background-secondary);border-color:var(--color-border-primary)}
+.cltr{
+  width:20px;height:20px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:500;
+  background:var(--color-background-secondary);
+  border:0.5px solid var(--color-border-secondary);
+  color:var(--color-text-secondary);
+}
+.cbtn.ok{background:var(--color-background-success);border-color:var(--color-border-success);color:var(--color-text-success)}
+.cbtn.ok .cltr{background:var(--color-background-success);border-color:var(--color-border-success);color:var(--color-text-success)}
+.cbtn.ko{background:var(--color-background-danger);border-color:var(--color-border-danger);color:var(--color-text-danger)}
+.cbtn.ko .cltr{background:var(--color-background-danger);border-color:var(--color-border-danger);color:var(--color-text-danger)}
+.cbtn:disabled{cursor:default}
+.fb{margin-top:12px;padding:11px 15px;border-radius:10px;font-size:12px;line-height:1.6}
+.fb.ok{background:var(--color-background-success);border:0.5px solid var(--color-border-success);color:var(--color-text-success)}
+.fb.ko{background:var(--color-background-danger);border:0.5px solid var(--color-border-danger);color:var(--color-text-danger)}
+.nxt{margin-top:14px;padding:9px 20px;border:0.5px solid var(--color-border-secondary);border-radius:10px;background:var(--color-background-primary);font-size:13px;cursor:pointer;color:var(--color-text-primary);display:inline-flex;align-items:center;gap:6px}
+.nxt:hover{background:var(--color-background-secondary)}
+
+.sscreen{text-align:center;padding:28px}
+.sscreen h2{font-size:19px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px}
+.sscreen p{font-size:13px;color:var(--color-text-secondary);line-height:1.7;margin-bottom:18px}
+.bbtn{padding:10px 28px;border:0.5px solid var(--color-border-secondary);border-radius:10px;background:var(--color-background-primary);font-size:13px;cursor:pointer;color:var(--color-text-primary)}
+.bbtn:hover{background:var(--color-background-secondary)}
+.sbig{font-size:30px;font-weight:500;color:var(--color-text-primary);margin:6px 0 12px}
+
+@keyframes walk{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.walking{animation:walk .4s infinite}
+@keyframes jmp{0%{transform:translateY(0)}40%{transform:translateY(-14px)}100%{transform:translateY(0)}}
+.jump{animation:jmp .45s ease}
+</style>
+</head>
+<body>
+<div id="G">
+<h2 class="sr-only">Jeu RPG pédagogique — Animation de réseau de distributeurs</h2>
+<div id="scene">
+  <div id="sky-bg"></div>
+  <div id="stars-c"></div>
+  <div id="ground-plane"></div>
+  <div id="road-surface"></div>
+  <div id="sidewalk-edge"></div>
+  <div id="road-center"></div>
+  <div id="buildings-layer"></div>
+  <div id="cps-layer"></div>
+  <div id="hero-wrap"><svg id="hero-svg" viewBox="0 0 52 80" xmlns="http://www.w3.org/2000/svg"></svg></div>
+</div>
+<div id="hud">
+  <div class="hud-g"><i class="ti ti-map-pin" style="font-size:15px" aria-hidden="true"></i><span>Étape</span><span class="hud-v" id="h-step">1/20</span></div>
+  <div class="hud-g"><span>Vies</span><span class="hp" id="hp0"></span><span class="hp" id="hp1"></span><span class="hp" id="hp2"></span></div>
+  <div class="hud-g"><i class="ti ti-star" style="font-size:15px" aria-hidden="true"></i><span class="hud-v" id="h-score">0 pts</span></div>
+  <div class="hud-g"><span style="font-size:11px">XP</span><div class="xpw"><div class="xpf" id="xpf" style="width:0%"></div></div></div>
+  <div class="hud-g"><span id="h-streak" style="font-size:11px;color:var(--color-text-secondary)"></span></div>
+</div>
+<div id="panel"><div id="scr">
+  <div class="sscreen" id="s-start">
+    <div style="font-size:42px;margin-bottom:10px">🏙️</div>
+    <h2>La quête du référencement</h2>
+    <p>Maxime, commercial terrain en costume-cravate, doit traverser toute la ville pour signer avec <strong>DistribMax</strong>.<br>20 questions progressives, inspirées du vrai cours. Les pièges sont nombreux. Bonne chance !</p>
+    <button class="bbtn" onclick="startGame()">Commencer <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i></button>
+  </div>
+  <div id="s-q" style="display:none"></div>
+  <div id="s-end" style="display:none"></div>
+</div></div>
+</div>
+<script>
+const QS=[
+  {z:"Fonctions de la distribution",ic:"📦",c:"background:#E6F1FB;color:#0C447C",
+   q:"Parmi ces fonctions, laquelle N'appartient PAS à la distribution physique ?",
+   ch:["La fonction de transport logistique","La fonction de stockage pour le réassort","La fonction de production industrielle","La fonction de financement du risque"],cor:2,
+   ex:"La distribution physique couvre transport, stockage, financement, SAV, assortiment et communication — mais jamais la production, qui appartient au fabricant."},
+
+  {z:"Canaux de distribution",ic:"🔗",c:"background:#E6F1FB;color:#0C447C",
+   q:"Un producteur passe par une centrale d'achat, puis un grossiste, avant d'atteindre le détaillant. Quel canal est-ce ?",
+   ch:["Canal direct","Canal court","Canal long","Canal intégré"],cor:2,
+   ex:"Le canal long comporte au moins deux intermédiaires. Ici : centrale + grossiste = deux niveaux avant le distributeur final."},
+
+  {z:"Stratégies de distribution",ic:"🎯",c:"background:#EEEDFE;color:#3C3489",
+   q:"Une marque de smartphones premium décide que seuls les revendeurs certifiés et formés peuvent vendre ses produits. Quelle stratégie est-ce ?",
+   ch:["Distribution intensive","Distribution exclusive","Distribution sélective","Distribution intégrée"],cor:2,
+   ex:"La distribution sélective choisit ses revendeurs selon des critères précis (formation, image, zone). L'exclusive n'en retient qu'un seul."},
+
+  {z:"Stratégies de distribution",ic:"🎯",c:"background:#EEEDFE;color:#3C3489",
+   q:"Une marque de luxe vend uniquement dans ses propres boutiques mono-marque. Quelle est cette stratégie ?",
+   ch:["Sélective","Exclusive","Intégrée","Intensive"],cor:2,
+   ex:"La stratégie intégrée implique que le producteur vend exclusivement dans ses propres points de vente. À ne pas confondre avec l'exclusive (un distributeur externe unique)."},
+
+  {z:"Choix stratégique",ic:"🧭",c:"background:#EEEDFE;color:#3C3489",
+   q:"Pour choisir sa stratégie de distribution, une entreprise doit tenir compte de la 'technicité du produit'. Concrètement, cela signifie :",
+   ch:["La capacité à stocker le produit longtemps","Le besoin ou non de démonstration pour vendre","Le prix conseillé au consommateur","Le nombre de fournisseurs disponibles"],cor:1,
+   ex:"Un produit technique (machine, logiciel, appareil médical) nécessite une démonstration ou une formation — ce qui oriente vers un canal sélectif ou court plutôt qu'intensif."},
+
+  {z:"Coopération producteur-distributeur",ic:"🤝",c:"background:#FAEEDA;color:#633806",
+   q:"La GPA (Gestion Partagée des Approvisionnements) a pour objectif principal de :",
+   ch:["Fixer les prix de vente conseillés","Limiter les ruptures de stock en temps réel","Réduire le nombre de références en rayon","Externaliser la logistique au distributeur"],cor:1,
+   ex:"La GPA vise à placer 'le bon produit, au bon endroit, au bon moment' grâce à un partage de données entre producteur et distributeur, limitant ruptures et surstocks."},
+
+  {z:"Types de coopération",ic:"🤝",c:"background:#FAEEDA;color:#633806",
+   q:"L'ECR (Efficient Consumer Response) se distingue de la GPA car il vise à :",
+   ch:["Optimiser les délais de paiement","Optimiser l'assortiment en fonction du comportement client","Automatiser les commandes EDI","Gérer les retours de marchandises"],cor:1,
+   ex:"L'ECR optimise l'assortiment selon les attentes consommateurs, tandis que la GPA optimise les flux d'approvisionnement. Le SRM, lui, gère la relation fournisseur globale."},
+
+  {z:"Cadre légal",ic:"⚖️",c:"background:#FAEEDA;color:#633806",
+   q:"Selon la loi LME 2008 / Sapin 2016, lequel de ces éléments est INCORRECT ?",
+   ch:["Les fournisseurs envoient leurs CGV avant le 30 novembre","Le paiement doit intervenir dans les 60 jours max après facturation","Les distributeurs peuvent imposer leurs propres CGV au fournisseur","La loi protège aussi les intérêts des consommateurs"],cor:2,
+   ex:"La loi interdit aux distributeurs d'imposer leurs CGV. Ce sont les fournisseurs qui transmettent les leurs. La négociation peut ensuite s'ouvrir, mais la base de départ est toujours le tarif fournisseur."},
+
+  {z:"Accords de distribution",ic:"📝",c:"background:#FAEEDA;color:#633806",
+   q:"Dans un contrat de franchise, qui bénéficie de la marque et du savoir-faire ?",
+   ch:["Le producteur","Le franchiseur","Le franchisé (le vendeur)","La centrale d'achat"],cor:2,
+   ex:"Le franchisé (ex : un gérant de Subway) bénéficie de la marque, du concept et du savoir-faire du franchiseur, en contrepartie de redevances. C'est lui qui est 'le vendeur'."},
+
+  {z:"Référencement",ic:"📋",c:"background:#E1F5EE;color:#085041",
+   q:"Un accord de référencement 'centralisé' signifie que :",
+   ch:["Chaque point de vente choisit librement ses produits","La centrale impose ses choix sans autonomie locale","Les points de vente peuvent adapter la sélection","La négociation se fait directement avec le chef de rayon"],cor:1,
+   ex:"En mode centralisé, la centrale d'achat décide et les points de vente n'ont pas le choix. En décentralisé, chaque magasin choisit. La décision mixte est entre les deux."},
+
+  {z:"Étapes de la négociation",ic:"🗣️",c:"background:#E1F5EE;color:#085041",
+   q:"Lors de la phase 'argumentation', le commercial doit argumenter envers :",
+   ch:["Le distributeur uniquement","Le directeur régional uniquement","Le distributeur ET les clients finaux du distributeur","La centrale d'achat uniquement"],cor:2,
+   ex:"L'argumentation double est clé : convaincre le distributeur (rentabilité, image) ET montrer que le produit répondra aux attentes de SES clients. Un argument centré uniquement fournisseur est insuffisant."},
+
+  {z:"Fixation des prix",ic:"💶",c:"background:#FAECE7;color:#712B13",
+   q:"Un producteur est juridiquement interdit de faire deux choses. Lesquelles ?",
+   ch:["Vendre à perte ET imposer un prix de vente au distributeur","Accorder des remises ET pratiquer l'écrémage","Vendre en ligne ET en distribution sélective","Fixer ses CGV ET les envoyer avant le 30 novembre"],cor:0,
+   ex:"La loi interdit formellement de vendre à perte (prix < coût de revient) et d'imposer un prix de revente au distributeur (pratique anti-concurrentielle). Le distributeur est libre de fixer ses propres prix de vente."},
+
+  {z:"Calcul de marges",ic:"💶",c:"background:#FAECE7;color:#712B13",
+   q:"Un produit coûte 40€ HT à l'achat et se vend 60€ HT. Quel est son taux de marque ?",
+   ch:["33,3 %","50 %","25 %","66,6 %"],cor:0,
+   ex:"Taux de marque = (marge / prix de vente HT) × 100 = (20/60) × 100 = 33,3 %. À distinguer du taux de marge = (20/40) × 100 = 50 %, calculé sur le coût d'achat."},
+
+  {z:"Zones d'implantation",ic:"🗺️",c:"background:#E1F5EE;color:#085041",
+   q:"La 'zone chaude' en magasin correspond à :",
+   ch:["L'entrée et la sortie du magasin","Le parcours naturel suivi par la majorité des clients","Les allées proches de l'entrée, peu fréquentées","Le fond du magasin, accessible uniquement aux clients motivés"],cor:1,
+   ex:"La zone chaude est le trajet naturel des clients (souvent en arc de cercle). La zone froide est moins fréquentée. Placer un produit en zone chaude maximise son exposition sans effort du client."},
+
+  {z:"Niveaux d'implantation",ic:"🛒",c:"background:#E1F5EE;color:#085041",
+   q:"Un fabricant négocie le niveau 'mains' (1,50 m) pour son produit. Pourquoi ce niveau est-il considéré comme 'bon' mais pas 'excellent' ?",
+   ch:["Parce qu'il est trop bas pour être vu","Parce que le niveau des yeux (1,70 m) génère davantage de ventes spontanées","Parce qu'il convient uniquement aux enfants","Parce que c'est le niveau réservé aux marques distributeur"],cor:1,
+   ex:"Le niveau yeux (1,70 m) est le plus vendeur car il capte le regard sans effort. Le niveau mains (1,50 m) est bon — on atteint facilement le produit — mais il génère moins d'achats d'impulsion que le niveau yeux."},
+
+  {z:"Implantation horizontale vs verticale",ic:"🛒",c:"background:#E1F5EE;color:#085041",
+   q:"En implantation verticale, quelle règle s'applique pour le commercial ?",
+   ch:["Placer les produits les moins chers en haut","Placer les produits à meilleure rentabilité au niveau yeux/mains","Alterner les marques pour créer de la variété","Regrouper tous les produits d'une même catégorie en bas"],cor:1,
+   ex:"En vertical, toutes les références d'une même marque sont côte à côte (de haut en bas). Le commercial place les références les plus rentables aux niveaux yeux/mains, et les moins rentables en haut ou en bas."},
+
+  {z:"Animations commerciales",ic:"🎪",c:"background:#FBEAF0;color:#72243E",
+   q:"Lors d'une animation 'dégustation', l'objectif principal du commercial est :",
+   ch:["Vendre le maximum de produits immédiatement","Faire découvrir le produit pour lever le frein de l'inconnu","Collecter les données personnelles des clients","Annoncer une promotion flash sur le produit"],cor:1,
+   ex:"La dégustation cherche à supprimer le frein de l'inconnu : le client qui goûte est plus enclin à acheter. L'objectif est la conversion par l'expérience, pas forcément la vente immédiate sur place."},
+
+  {z:"Évaluation des animations",ic:"📊",c:"background:#FBEAF0;color:#72243E",
+   q:"Pour évaluer qualitativement une animation commerciale, on utilise :",
+   ch:["Un tableau de bord de KPIs","Des questionnaires de satisfaction et commentaires réseaux sociaux","La variation du CA avant/après","Le calcul du taux de marge sur la période"],cor:1,
+   ex:"L'évaluation qualitative repose sur la perception client : satisfaction, idées collectées, commentaires RS. L'évaluation quantitative, elle, utilise les KPIs et tableaux de bord (CA, taux de transformation…)."},
+
+  {z:"Pilotage & veille",ic:"🔍",c:"background:#E6F1FB;color:#0C447C",
+   q:"Le 'category management' dans le pilotage de l'activité permet de :",
+   ch:["Gérer les ruptures de stock en temps réel","Définir les leviers commerciaux à actionner par catégorie de produits","Calculer automatiquement les marges distributeur","Planifier les tournées du commercial terrain"],cor:1,
+   ex:"Le category management analyse chaque catégorie de produits pour définir les actions prioritaires : assortiment à modifier, promotions à activer, implantation à optimiser. C'est un outil stratégique, pas opérationnel."},
+
+  {z:"KPI's du référencement",ic:"📈",c:"background:#FAECE7;color:#712B13",
+   q:"Un produit a une DN de 60 et une DV de 20. Quelle situation cela décrit-il ?",
+   ch:["Présent partout mais dans les petits magasins","Rare mais dans les grandes enseignes qui font le CA","Une erreur : la DV est toujours supérieure à la DN","Présent dans 20 % des magasins générant 60 % du CA"],cor:0,
+   ex:"DN 60 > DV 20 : le produit est dans beaucoup de points de vente (60 %) mais ceux-ci sont de petits magasins qui pèsent peu (20 % du CA marché). Situation inverse de DN 40 / DV 70 où l'on est dans peu d'enseignes mais les plus grosses."},
+];
+
+const N=QS.length;
+const POSITIONS=[];
+for(let i=0;i<N+1;i++) POSITIONS.push(3+i*(94/N));
+
+let cur=0,score=0,lives=3,streak=0,answered=false;
+
+function stars(){
+  const c=document.getElementById('stars-c');
+  for(let i=0;i<80;i++){
+    const d=document.createElement('div');
+    d.className='star-dot';
+    const sz=Math.random()<0.3?2:1;
+    d.style.cssText=\`width:\${sz}px;height:\${sz}px;left:\${Math.random()*100}%;top:\${Math.random()*55}%;opacity:\${.2+Math.random()*.8}\`;
+    c.appendChild(d);
+  }
+}
+
+function buildCity(){
+  const bl=document.getElementById('buildings-layer');
+  const bdata=[
+    {l:1,w:55,h:160,col:'#1c2e42',wns:[[6,12,10,14],[24,12,10,14],[40,12,10,14],[6,34,10,14],[24,34,10,14],[40,34,10,14],[6,56,10,14],[24,56,10,14],[6,78,10,14],[24,78,10,14]],sc:'HÔTEL',sb:'#0C447C',sl:5,sw:45,dr:16,dw:22,dh:22,side:true},
+    {l:8,w:44,h:120,col:'#1e2d1e',wns:[[6,10,10,12],[24,10,10,12],[6,30,10,12],[24,30,10,12],[6,50,10,12],[24,50,10,12],[6,70,10,12],[24,70,10,12]],sc:'BANQUE',sb:'#27500A',sl:4,sw:36,dr:12,dw:20,dh:18,side:false},
+    {l:17,w:62,h:145,col:'#2a1e2a',wns:[[6,10,12,14],[26,10,12,14],[44,10,12,14],[6,32,12,14],[26,32,12,14],[44,32,12,14],[6,54,12,14],[26,54,12,14],[44,54,12,14],[6,76,12,14]],sc:'CENTRALE',sb:'#3C3489',sl:5,sw:52,dr:20,dw:22,dh:20,side:true},
+    {l:27,w:50,h:105,col:'#2a1a10',wns:[[6,12,10,12],[26,12,10,12],[6,32,10,12],[26,32,10,12],[6,52,10,12],[26,52,10,12],[6,72,10,12],[26,72,10,12]],sc:'AGENCE',sb:'#633806',sl:4,sw:42,dr:14,dw:22,dh:18,side:false},
+    {l:36,w:70,h:130,col:'#1a1a2a',wns:[[6,10,12,14],[28,10,12,14],[50,10,12,14],[6,32,12,14],[28,32,12,14],[50,32,12,14],[6,54,12,14],[28,54,12,14],[50,54,12,14]],sc:'ENTREPÔT',sb:'#0C447C',sl:5,sw:60,dr:22,dw:26,dh:20,side:true},
+    {l:47,w:48,h:98,col:'#1e2a1a',wns:[[6,10,10,12],[26,10,10,12],[6,28,10,12],[26,28,10,12],[6,46,10,12],[26,46,10,12],[6,64,10,12],[26,64,10,12]],sc:'GROSSISTE',sb:'#085041',sl:4,sw:40,dr:12,dw:24,dh:18,side:false},
+    {l:56,w:58,h:118,col:'#251e10',wns:[[6,10,11,13],[25,10,11,13],[42,10,11,13],[6,30,11,13],[25,30,11,13],[42,30,11,13],[6,50,11,13],[25,50,11,13],[6,70,11,13],[25,70,11,13]],sc:'CATEGORY',sb:'#412402',sl:4,sw:50,dr:18,dw:22,dh:18,side:true},
+    {l:66,w:46,h:90,col:'#1a1020',wns:[[5,10,10,12],[25,10,10,12],[5,28,10,12],[25,28,10,12],[5,46,10,12],[25,46,10,12],[5,64,10,12],[25,64,10,12]],sc:'SRM/EDI',sb:'#26215C',sl:4,sw:38,dr:12,dw:22,dh:16,side:false},
+    {l:75,w:80,h:155,col:'#1a0a0a',wns:[[6,10,13,16],[28,10,13,16],[55,10,13,16],[6,34,13,16],[28,34,13,16],[55,34,13,16],[6,58,13,16],[28,58,13,16],[55,58,13,16],[6,82,13,16],[28,82,13,16],[55,82,13,16]],sc:'DISTRIBMAX',sb:'#791F1F',sl:5,sw:70,dr:26,dw:28,dh:24,side:true},
+  ];
+
+  bdata.forEach(b=>{
+    const wrap=document.createElement('div');
+    wrap.style.cssText=\`position:absolute;bottom:0;left:\${b.l}%\`;
+    const face=document.createElement('div');
+    face.style.cssText=\`width:\${b.w}px;height:\${b.h}px;background:\${b.col};border-radius:3px 3px 0 0;position:relative\`;
+    b.wns.forEach(w=>{
+      const wd=document.createElement('div');
+      wd.style.cssText=\`position:absolute;left:\${w[0]}px;top:\${w[1]}px;width:\${w[2]}px;height:\${w[3]}px;background:#ffd97a;border-radius:1px\`;
+      face.appendChild(wd);
+    });
+    const sg=document.createElement('div');
+    sg.style.cssText=\`position:absolute;left:\${b.sl}px;top:3px;width:\${b.sw}px;height:15px;background:\${b.sb};border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;color:#fff;letter-spacing:.3px\`;
+    sg.textContent=b.sc;
+    face.appendChild(sg);
+    const dr=document.createElement('div');
+    dr.style.cssText=\`position:absolute;bottom:0;left:\${b.dr}px;width:\${b.dw}px;height:\${b.dh}px;background:#1a0a00;border-radius:2px 2px 0 0\`;
+    face.appendChild(dr);
+    if(b.side){
+      const side=document.createElement('div');
+      side.style.cssText=\`position:absolute;left:\${b.w}px;bottom:0;width:\${Math.round(b.w*0.18)}px;height:\${b.h}px;background:\${b.col};filter:brightness(0.55);border-radius:0 2px 0 0\`;
+      wrap.appendChild(face);
+      wrap.appendChild(side);
+    } else {
+      wrap.appendChild(face);
+    }
+    bl.appendChild(wrap);
+  });
+
+  const lamps=[12,22,32,43,52,62,71,80];
+  lamps.forEach(p=>{
+    const l=document.createElement('div');
+    l.style.cssText=\`position:absolute;bottom:0;left:\${p}%\`;
+    l.innerHTML=\`<div style="width:28px;height:10px;background:rgba(255,217,100,0.15);border-radius:50%;margin:0 auto"></div><div style="width:20px;height:5px;background:#e8d070;border-radius:2px 2px 0 0;margin:0 auto"></div><div style="width:3px;height:40px;background:#555;margin:0 auto"></div>\`;
+    bl.appendChild(l);
+  });
+}
+
+function buildCPs(){
+  const layer=document.getElementById('cps-layer');
+  const labels=['Canal','Stratégie','Légal','Référencement','Prix','Implantation','Animations','Pilotage','KPIs','Fin'];
+  const cpPositions=[];
+  for(let i=0;i<=N;i+=Math.floor(N/9)){
+    cpPositions.push(i);
+    if(cpPositions.length===10) break;
+  }
+  cpPositions[9]=N;
+
+  cpPositions.forEach((qi,ci)=>{
+    const pct=POSITIONS[qi];
+    const div=document.createElement('div');
+    div.className='cp '+(ci===0?'active-cp':'lock-cp');
+    div.id='cp'+ci;
+    div.style.left=pct+'%';
+    div.innerHTML=\`<div class="cp-ring">\${ci<9?(ci+1):'★'}</div><div class="cp-lbl">\${labels[ci]}</div>\`;
+    layer.appendChild(div);
+  });
+  window._cpQ=cpPositions;
+}
+
+function heroSVG(){
+  document.getElementById('hero-svg').innerHTML=\`
+<ellipse cx="26" cy="78" rx="12" ry="3" fill="rgba(0,0,0,0.3)"/>
+<rect x="18" y="47" width="20" height="24" rx="3" fill="#1a2e4a"/>
+<rect x="18" y="47" width="9" height="14" rx="2" fill="#1f3654"/>
+<rect x="29" y="47" width="9" height="14" rx="2" fill="#1f3654"/>
+<line x1="26" y1="47" x2="26" y2="61" stroke="#0d1b2a" stroke-width="1"/>
+<rect x="22" y="47" width="8" height="3" rx="1" fill="#c8a050"/>
+<rect x="24" y="50" width="4" height="8" rx="1" fill="#fff"/>
+<rect x="10" y="48" width="10" height="16" rx="3" fill="#1a2e4a"/>
+<rect x="32" y="48" width="10" height="16" rx="3" fill="#1a2e4a"/>
+<rect x="10" y="60" width="10" height="5" rx="2" fill="#F5C4B3"/>
+<rect x="32" y="60" width="10" height="5" rx="2" fill="#F5C4B3"/>
+<rect x="18" y="69" width="8" height="11" rx="3" fill="#0d1b2a"/>
+<rect x="26" y="69" width="8" height="11" rx="3" fill="#0d1b2a"/>
+<rect x="17" y="72" width="10" height="3" rx="1" fill="#1a2e4a"/>
+<rect x="25" y="72" width="10" height="3" rx="1" fill="#1a2e4a"/>
+<circle cx="26" cy="32" r="12" fill="#F0C8A0"/>
+<ellipse cx="26" cy="22" rx="13" ry="9" fill="#1a2e4a"/>
+<ellipse cx="26" cy="21" rx="11" ry="5" fill="#243d5c"/>
+<rect x="13" y="22" width="26" height="5" rx="0" fill="#1a2e4a"/>
+<circle cx="21" cy="33" r="2" fill="#2C2C2A"/>
+<circle cx="31" cy="33" r="2" fill="#2C2C2A"/>
+<path d="M21 37 Q26 40 31 37" stroke="#A32D2D" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+<rect x="21" y="44" width="10" height="5" rx="2" fill="#F0C8A0"/>
+<rect x="22" y="41" width="2" height="4" fill="#c8a050"/>
+<rect x="22" y="38" width="8" height="4" rx="1" fill="#c8a050"/>
+<rect x="22" y="47" width="8" height="2" rx="1" fill="#E24B4A"/>
+<rect x="34" y="52" width="8" height="10" rx="2" fill="#8B6914"/>
+<rect x="35" y="53" width="6" height="8" rx="1" fill="#c8a050"/>\`;
+}
+
+function updateHero(pos){
+  const hw=document.getElementById('hero-wrap');
+  hw.style.left=pos+'%';
+  hw.style.marginLeft='-26px';
+}
+
+function updateCPs(){
+  const cpQ=window._cpQ||[];
+  cpQ.forEach((qi,ci)=>{
+    const el=document.getElementById('cp'+ci);
+    if(!el) return;
+    if(cur>qi) el.className='cp done-cp';
+    else if(cur===qi||(ci>0&&cur>cpQ[ci-1]&&cur<=qi)) el.className='cp active-cp';
+    else el.className='cp lock-cp';
+  });
+}
+
+function startGame(){
+  document.getElementById('s-start').style.display='none';
+  document.getElementById('s-q').style.display='block';
+  updateHero(POSITIONS[0]);
+  renderQ();
+}
+
+function renderQ(){
+  answered=false;
+  const s=QS[cur];
+  document.getElementById('h-step').textContent=\`\${cur+1}/\${N}\`;
+  const streakTxt=streak>=3?\`<span style="color:#BA7517">🔥 \${streak} consécutives</span>\`:'';
+  document.getElementById('h-streak').innerHTML=streakTxt;
+  document.getElementById('s-q').innerHTML=\`
+<div class="ztag" style="\${s.c}"><span>\${s.ic}</span><span>\${s.z}</span></div>
+<div class="qtxt">\${s.q}</div>
+<div class="choices">
+  \${s.ch.map((c,i)=>\`<button class="cbtn" id="cb\${i}" onclick="answer(\${i})"><span class="cltr">\${String.fromCharCode(65+i)}</span><span>\${c}</span></button>\`).join('')}
+</div>
+<div id="fb"></div>\`;
+}
+
+function answer(idx){
+  if(answered)return;
+  answered=true;
+  document.querySelectorAll('.cbtn').forEach(b=>b.disabled=true);
+  const s=QS[cur];
+  if(idx===s.cor){
+    document.getElementById('cb'+idx).classList.add('ok');
+    streak++;
+    const bonus=streak>=3?30:streak===2?15:0;
+    const pts=70+bonus+(lives===3?20:0);
+    score+=pts;
+    document.getElementById('h-score').textContent=score+' pts';
+    document.getElementById('xpf').style.width=Math.round((score/(N*120))*100)+'%';
+    document.getElementById('fb').innerHTML=\`<div class="fb ok"><strong>Correct !</strong> +\${pts} pts\${bonus>0?' (bonus série +'+bonus+')':''} — \${s.ex}</div>
+    <button class="nxt" onclick="advance()">Continuer <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i></button>\`;
+    const hw=document.getElementById('hero-wrap');
+    hw.classList.add('jump');
+    setTimeout(()=>hw.classList.remove('jump'),500);
+  } else {
+    document.getElementById('cb'+idx).classList.add('ko');
+    document.getElementById('cb'+s.cor).classList.add('ok');
+    streak=0;lives--;
+    ['hp0','hp1','hp2'].forEach((id,i)=>{if(i>=lives) document.getElementById(id).classList.add('off')});
+    document.getElementById('h-streak').innerHTML='';
+    document.getElementById('fb').innerHTML=\`<div class="fb ko"><strong>Incorrect.</strong> \${s.ex}</div>\`;
+    if(lives>0){
+      document.getElementById('fb').innerHTML+=\`<button class="nxt" onclick="advance()">Continuer <i class="ti ti-arrow-right" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i></button>\`;
+    } else {
+      setTimeout(()=>endGame(false),1200);
+    }
+  }
+}
+
+function advance(){
+  cur++;
+  updateHero(POSITIONS[Math.min(cur,N)]);
+  updateCPs();
+  if(cur>=N){setTimeout(()=>endGame(true),900);return;}
+  setTimeout(renderQ,600);
+}
+
+function endGame(win){
+  document.getElementById('s-q').style.display='none';
+  const es=document.getElementById('s-end');
+  es.style.display='block';
+  const pct=Math.round((score/(N*120))*100);
+  const medal=pct>=85?'🥇':pct>=65?'🥈':pct>=45?'🥉':'💼';
+  const msg=win
+    ?(pct>=85?'Performance exceptionnelle ! Maxime est promu directeur commercial.':pct>=65?'Beau travail ! DistribMax signe le contrat.':'Contrat obtenu de justesse. Des lacunes à combler.')
+    :'Maxime rentre bredouille. Révisez le cours et retentez !';
+  es.innerHTML=\`<div class="sscreen">
+    <div style="font-size:44px;margin-bottom:8px">\${medal}</div>
+    <h2>\${win?'Contrat signé !':'Mission échouée'}</h2>
+    <div class="sbig">\${score} pts <span style="font-size:14px;color:var(--color-text-secondary)">(\${pct} %)</span></div>
+    <p>\${msg}</p>
+    <button class="bbtn" onclick="restart()">Rejouer <i class="ti ti-refresh" style="font-size:13px;vertical-align:-2px" aria-hidden="true"></i></button>
+  </div>\`;
+}
+
+function restart(){
+  cur=0;score=0;lives=3;streak=0;answered=false;
+  document.getElementById('h-score').textContent='0 pts';
+  document.getElementById('h-step').textContent='1/20';
+  document.getElementById('xpf').style.width='0%';
+  document.getElementById('h-streak').innerHTML='';
+  ['hp0','hp1','hp2'].forEach(id=>document.getElementById(id).classList.remove('off'));
+  updateHero(POSITIONS[0]);
+  updateCPs();
+  document.getElementById('s-end').style.display='none';
+  document.getElementById('s-q').style.display='block';
+  renderQ();
+}
+
+stars();
+buildCity();
+buildCPs();
+heroSVG();
+updateHero(POSITIONS[0]);
+<\/script>
+</body>
+</html>
+`
+
 // ─── UI ATOMS ─────────────────────────────────────────────────────────────────
 const Bdg = ({children,color=G.accent,sm}) => (
   <span style={{background:color+'22',color,border:`1px solid ${color}44`,borderRadius:6,padding:sm?'1px 6px':'2px 8px',fontSize:sm?10:11,fontWeight:600,whiteSpace:'nowrap'}}>{children}</span>
@@ -644,7 +1192,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
   const myClass=classes.find(c=>c.id===student.class_id)
   const fullName=`${student.first_name} ${student.last_name}`
-  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},{id:'msgs',icon:'💬',label:'Messages'}]
+  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},{id:'game',icon:'🎮',label:'Jeu'},{id:'msgs',icon:'💬',label:'Messages'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
@@ -828,6 +1376,20 @@ function StudentApp({student,onLogout,onPwdSaved}) {
                 })()}
               </div>
             )}
+          </div>
+        )}
+
+        {tab==='game'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:12}}>🎮 La quête du référencement</div>
+            <div style={{flex:1,borderRadius:14,overflow:'hidden',border:`1px solid ${G.border}`,background:'#0d1b2a',minHeight:0}}>
+              <iframe
+                srcDoc={GAME_HTML}
+                style={{width:'100%',height:'100%',border:'none',display:'block',minHeight:520}}
+                title="Jeu RPG pédagogique"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            </div>
           </div>
         )}
 
