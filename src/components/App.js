@@ -534,27 +534,48 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'quiz_classes',filter:'class_id=eq.'+student.class_id},
         async()=>{ const {data:qRes}=await supabase.from('quiz_classes').select('quiz_id,quizzes(*,quiz_questions(*))').eq('class_id',student.class_id); setQuizzes((qRes||[]).map(r=>r.quizzes).filter(Boolean)) })
       .subscribe()
-    // Presence: mark online in DB + heartbeat
+    // Presence: use broadcast channel for instant updates + DB for persistence
+    const presenceCh=supabase.channel('presence-global')
+    presenceCh.on('presence',{event:'sync'},()=>{}).subscribe(async(status)=>{
+      if(status==='SUBSCRIBED'){
+        await presenceCh.track({student_id:student.id,online:true,ts:Date.now()})
+      }
+    })
+    // Also write to DB for teacher to read on load
     const upsertOnline=()=>supabase.from('presence').upsert({student_id:student.id,is_online:true,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
     upsertOnline()
-    const heartbeat=setInterval(upsertOnline,20000)
-    const markOffline=async()=>{ await supabase.from('presence').upsert({student_id:student.id,is_online:false,last_seen_at:new Date().toISOString()},{onConflict:'student_id'}) }
+    const heartbeat=setInterval(upsertOnline,15000)
+    const markOffline=()=>{
+      presenceCh.untrack()
+      supabase.from('presence').upsert({student_id:student.id,is_online:false,last_seen_at:new Date().toISOString()},{onConflict:'student_id'})
+    }
     window.addEventListener('beforeunload',markOffline)
     document.addEventListener('visibilitychange',()=>{ if(document.hidden) markOffline(); else upsertOnline() })
 
-    // Typing + teacher-to-student channel (single channel for both)
-    const typingCh=supabase.channel('conv-'+student.id, {config:{broadcast:{self:false}}})
-      .on('broadcast',{event:'teacher_typing'},({payload})=>setTeacherTyping(!!payload.typing))
+    // Typing: dedicated channel
+    const typingCh=supabase.channel('typing-s-'+student.id,{config:{broadcast:{ack:false,self:false}}})
+      .on('broadcast',{event:'teacher_typing'},({payload})=>{
+        setTeacherTyping(!!payload.typing)
+        if(payload.typing) setTimeout(()=>setTeacherTyping(false),4000)
+      })
       .subscribe()
 
-    // Expose typing callback for input
+    // Student typing callback
+    let typingTimer=null
     window._typingCb=(isTyping)=>{
-      supabase.channel('conv-'+student.id).send({type:'broadcast',event:'student_typing',payload:{student_id:student.id,typing:isTyping}})
+      const ch=supabase.channel('typing-t-'+student.id,{config:{broadcast:{ack:false,self:false}}})
+      ch.subscribe((s)=>{
+        if(s==='SUBSCRIBED') ch.send({type:'broadcast',event:'student_typing',payload:{student_id:student.id,typing:isTyping}})
+      })
+      if(isTyping){
+        clearTimeout(typingTimer)
+        typingTimer=setTimeout(()=>window._typingCb&&window._typingCb(false),3000)
+      }
     }
 
     return ()=>{
       msgSub.unsubscribe(); readSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe()
-      typingCh.unsubscribe(); clearInterval(heartbeat)
+      typingCh.unsubscribe(); presenceCh.unsubscribe(); clearInterval(heartbeat)
       window.removeEventListener('beforeunload',markOffline); markOffline()
       window._typingCb=null
     }
@@ -645,7 +666,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
   const myClass=classes.find(c=>c.id===student.class_id)
   const fullName=`${student.first_name} ${student.last_name}`
-  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},{id:'msgs',icon:'💬',label:'Messages'}]
+  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},{id:'game',icon:'🎮',label:'Jeu'},{id:'msgs',icon:'💬',label:'Messages'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
@@ -831,6 +852,20 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             )}
           </div>
         )}
+        {tab==='game'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%',gap:12}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 La quête du référencement</div>
+            <div style={{flex:1,borderRadius:14,overflow:'hidden',border:`1px solid ${G.border}`,minHeight:0,background:'#0a0a1a'}}>
+              <iframe
+                src="/game.html"
+                style={{width:'100%',height:'100%',border:'none',display:'block',minHeight:540}}
+                title="Jeu RPG pédagogique"
+                allow="scripts"
+              />
+            </div>
+          </div>
+        )}
+
         {tab==='msgs'&&(
           <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
             <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:8}}>💬 Messages</div>
@@ -844,9 +879,16 @@ function StudentApp({student,onLogout,onPwdSaved}) {
               onTyping={(isT)=>{ if(window._typingCb) window._typingCb(isT) }}
               onView={()=>{
                 setUnreadTeacher(0)
-                localStorage.setItem('talis_unread_'+student.id,'0')
-                // Mark teacher messages as read in DB
-                supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',student.id).eq('from_role','teacher').is('read_at',null)
+                try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}
+                // Mark unread teacher messages as read
+                const unread=msgs.filter(m=>m.from_role==='teacher'&&!m.read_at)
+                if(unread.length){
+                  unread.forEach(m=>{
+                    supabase.from('messages').update({read_at:new Date().toISOString()}).eq('id',m.id).then(()=>{
+                      setMsgs(prev=>prev.map(x=>x.id===m.id?{...x,read_at:new Date().toISOString()}:x))
+                    })
+                  })
+                }
               }}
             />
           </div>
@@ -997,34 +1039,42 @@ function TeacherApp({onLogout}) {
     const stuSub=supabase.channel('teacher-students')
       .on('postgres_changes',{event:'*',schema:'public',table:'students'},()=>loadAll())
       .subscribe()
-    // Presence realtime
-    const presSub=supabase.channel('teacher-presence')
-      .on('postgres_changes',{event:'*',schema:'public',table:'presence'},payload=>{
-        const r=payload.new||payload.old
-        if(r) setPresence(p=>({...p,[r.student_id]:{is_online:r.is_online,last_seen_at:r.last_seen_at}}))
-      }).subscribe()
-    // Load initial presence
+    // Presence: load from DB on start
     supabase.from('presence').select('*').then(({data})=>{
       if(data){ const p={}; data.forEach(r=>p[r.student_id]={is_online:r.is_online,last_seen_at:r.last_seen_at}); setPresence(p) }
     })
-    // Subscribe to student typing per conversation
-    const convChannels={}
+    // Presence: listen to broadcast channel for real-time updates
+    const presenceCh=supabase.channel('presence-global')
+      .on('presence',{event:'join'},({newPresences})=>{
+        newPresences.forEach(p=>{ if(p.student_id) setPresence(prev=>({...prev,[p.student_id]:{is_online:true,last_seen_at:new Date().toISOString()}})) })
+      })
+      .on('presence',{event:'leave'},({leftPresences})=>{
+        leftPresences.forEach(p=>{ if(p.student_id) setPresence(prev=>({...prev,[p.student_id]:{is_online:false,last_seen_at:new Date().toISOString()}})) })
+      })
+      .subscribe()
+    // Also poll DB every 30s for accuracy
+    const presencePoll=setInterval(()=>{
+      supabase.from('presence').select('*').then(({data})=>{
+        if(data){ const p={}; data.forEach(r=>p[r.student_id]={is_online:r.is_online,last_seen_at:r.last_seen_at}); setPresence(p) }
+      })
+    },30000)
+    // Subscribe to student typing channels
+    const typingChannels={}
     const subscribeTyping=(sid)=>{
-      if(convChannels[sid]) return
-      convChannels[sid]=supabase.channel('conv-'+sid,{config:{broadcast:{self:false}}})
+      if(typingChannels[sid]) return
+      typingChannels[sid]=supabase.channel('typing-t-'+sid,{config:{broadcast:{ack:false,self:false}}})
         .on('broadcast',{event:'student_typing'},({payload})=>{
-          setStudentTyping(t=>({...t,[payload.student_id]:!!payload.typing}))
-          // Auto-clear typing after 3s
-          setTimeout(()=>setStudentTyping(t=>({...t,[payload.student_id]:false})),3000)
+          setStudentTyping(t=>({...t,[payload.student_id]:true}))
+          setTimeout(()=>setStudentTyping(t=>({...t,[payload.student_id]:false})),4000)
         })
         .subscribe()
     }
-    // Subscribe to all current students
     supabase.from('students').select('id').then(({data})=>data?.forEach(s=>subscribeTyping(s.id)))
 
     return ()=>{
-      msgSub.unsubscribe(); stuSub.unsubscribe(); presSub.unsubscribe()
-      Object.values(convChannels).forEach(c=>c.unsubscribe())
+      msgSub.unsubscribe(); stuSub.unsubscribe(); presenceCh.unsubscribe()
+      clearInterval(presencePoll)
+      Object.values(typingChannels).forEach(c=>c.unsubscribe())
     }
   },[])
 
@@ -1175,8 +1225,9 @@ function TeacherApp({onLogout}) {
     // Mark student messages as read
     await supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',sid).eq('from_role','student').is('read_at',null)
     setReadMsgs(r=>({...r,[sid]:new Date().toISOString()}))
-    // Broadcast teacher typing=false on conv channel
-    supabase.channel('conv-'+sid).send({type:'broadcast',event:'teacher_typing',payload:{typing:false}})
+    // Broadcast teacher not typing anymore
+    const tch=supabase.channel('typing-s-'+sid,{config:{broadcast:{ack:false,self:false}}})
+    tch.subscribe(s=>{ if(s==='SUBSCRIBED') tch.send({type:'broadcast',event:'teacher_typing',payload:{typing:false}}) })
 
   }
 
@@ -1199,7 +1250,7 @@ function TeacherApp({onLogout}) {
     return (msgs[sid]||[]).filter(m=>m.from_role==='student'&&new Date(m.sent_at)>new Date(lastRead)).length
   }
   const totalUnread=students.reduce((a,s)=>a+countUnread(s.id),0)
-  const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'notes',icon:'📝',label:'Notes'},{id:'add',icon:'➕',label:'Ajouter'}]
+  const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'notes',icon:'📝',label:'Notes'},{id:'game',icon:'🎮',label:'Jeu'},{id:'add',icon:'➕',label:'Ajouter'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',background:G.bg}}><Spinner/></div>
 
@@ -1322,14 +1373,25 @@ function TeacherApp({onLogout}) {
                   onSend={(t,a)=>sendReply(selStudent.id,t,a)}
                   onDelete={(id)=>deleteMsg(selStudent.id,id)}
                   onView={()=>{
-                    setReadMsgs(r=>({...r,[selStudent.id]:new Date().toISOString()}))
-                    supabase.from('messages').update({read_at:new Date().toISOString()}).eq('student_id',selStudent.id).eq('from_role','student').is('read_at',null)
+                    const now=new Date().toISOString()
+                    setReadMsgs(r=>({...r,[selStudent.id]:now}))
+                    const sid=selStudent.id
+                    // Mark each unread student message individually
+                    const unread=(msgs[sid]||[]).filter(m=>m.from_role==='student'&&!m.read_at)
+                    unread.forEach(m=>{
+                      supabase.from('messages').update({read_at:now}).eq('id',m.id).then(()=>{
+                        setMsgs(prev=>({...prev,[sid]:(prev[sid]||[]).map(x=>x.id===m.id?{...x,read_at:now}:x)}))
+                      })
+                    })
                   }}
                   onBack={()=>setSelStudent(null)}
                   otherName={`${selStudent.first_name} ${selStudent.last_name}`}
                   isTyping={!!studentTyping[selStudent.id]}
                   isOnline={!!presence[selStudent.id]?.is_online}
-                  onTyping={(isT)=>supabase.channel('conv-'+selStudent.id).send({type:'broadcast',event:'teacher_typing',payload:{typing:isT}})}
+                  onTyping={(isT)=>{
+                    const tch=supabase.channel('typing-s-'+selStudent.id,{config:{broadcast:{ack:false,self:false}}})
+                    tch.subscribe(s=>{ if(s==='SUBSCRIBED') tch.send({type:'broadcast',event:'teacher_typing',payload:{typing:isT}}) })
+                  }}
                 />
               </div>
             ):(
@@ -1522,6 +1584,22 @@ function TeacherApp({onLogout}) {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* GAME */}
+        {tab==='game'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%',gap:12}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 La quête du référencement</div>
+            <div style={{color:G.muted,fontSize:13}}>Aperçu du jeu disponible pour vos élèves.</div>
+            <div style={{flex:1,borderRadius:14,overflow:'hidden',border:`1px solid ${G.border}`,minHeight:0,background:'#0a0a1a'}}>
+              <iframe
+                src="/game.html"
+                style={{width:'100%',height:'100%',border:'none',display:'block',minHeight:540}}
+                title="Jeu RPG pédagogique"
+                allow="scripts"
+              />
+            </div>
           </div>
         )}
 
