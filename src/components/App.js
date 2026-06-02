@@ -1080,6 +1080,7 @@ function TeacherApp({onLogout}) {
   const [quiz,setQuiz]=useState({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
+  const [gameActive,setGameActive]=useState(false)
   const [presence,setPresence]=useState({})
   const [grades,setGrades]=useState([]) // [{id,title,coefficient,classIds,scores:{studentId:note}}]
   const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}})
@@ -1865,7 +1866,7 @@ function TeacherApp({onLogout}) {
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null);if(t.id!=='notes') setNotesView(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null);if(t.id!=='notes') setNotesView(null);if(t.id!=='game') setGameActive(false)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accentHot:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&totalUnread>0&&<div style={{position:'absolute',top:0,right:'16%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
