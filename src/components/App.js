@@ -1599,7 +1599,6 @@ function TeacherApp({onLogout}) {
         {/* CONTENT */}
         {tab==='content'&&(
           <div className="fade-up">
-            <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>📚 Contenu publié</div>
                 {(()=>{
                   const allItems=[
@@ -1674,6 +1673,7 @@ function TeacherApp({onLogout}) {
                     )
                   })
                 })()}
+          </div>
         )}
 
         {/* NOTES */}
