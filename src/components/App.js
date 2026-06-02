@@ -917,41 +917,38 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
       {tab==='game'&&!gameActive&&(
         <div style={{position:'absolute',inset:0,zIndex:10,background:G.bg,display:'flex',flexDirection:'column',overflow:'auto'}}>
-          <div style={{padding:20,display:'flex',flexDirection:'column',gap:14}}>
-            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques NDRC</div>
-            {/* Game 1: available */}
-            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🏙️</div>
-                <div style={{flex:1}}>
-                  <div className="syne" style={{fontWeight:700,fontSize:15}}>La quête du référencement</div>
-                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div>
-                </div>
+          <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques</div>
+            <div style={{color:G.muted,fontSize:13}}>Aperçu de tous les jeux disponibles pour vos classes.</div>
+
+            <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accent,letterSpacing:1,marginTop:4}}>NDRC</div>
+            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:11}}>
+                <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏙️</div>
+                <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>La quête du référencement</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div></div>
                 <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
               </div>
             </div>
-            {/* Game 2: coming soon */}
-            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
-                <div style={{flex:1}}>
-                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 2</div>
-                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+            {['Jeu NDRC 2','Jeu NDRC 3'].map((label,i)=>(
+              <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
+                <div style={{display:'flex',alignItems:'center',gap:11}}>
+                  <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
+                  <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
+                  <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
                 </div>
-                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
               </div>
-            </div>
-            {/* Game 3: coming soon */}
-            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
-                <div style={{flex:1}}>
-                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 3</div>
-                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+            ))}
+
+            <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accentHot,letterSpacing:1,marginTop:6}}>MCO</div>
+            {['Jeu MCO 1','Jeu MCO 2','Jeu MCO 3'].map((label,i)=>(
+              <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
+                <div style={{display:'flex',alignItems:'center',gap:11}}>
+                  <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
+                  <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
+                  <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
                 </div>
-                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
@@ -1612,62 +1609,69 @@ function TeacherApp({onLogout}) {
               </div>
             </div>
 
-            {/* ── LEVEL 1: global class average ── */}
+            {/* ── LEVEL 1: one card per class ── */}
             {!notesView&&(
               <>
                 {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune évaluation publiée.</div>}
-                {grades.length>0&&(()=>{
-                  // Compute overall weighted average across all grades
-                  const allScored=grades.flatMap(g=>students.filter(s=>g.classIds.includes(s.class_id)&&g.scores[s.id]!==undefined).map(s=>({score:parseFloat(g.scores[s.id]),coeff:g.coefficient})))
+                {grades.length>0&&classes.map(cl=>{
+                  // Only show classes that have at least one grade
+                  const classGrades=grades.filter(g=>g.classIds.includes(cl.id))
+                  if(!classGrades.length) return null
+                  const classStudents=students.filter(s=>s.class_id===cl.id)
+                  const allScored=classGrades.flatMap(g=>classStudents.filter(s=>g.scores[s.id]!==undefined).map(s=>({score:parseFloat(g.scores[s.id]),coeff:g.coefficient})))
                   const totalW=allScored.reduce((a,x)=>a+x.score*x.coeff,0)
                   const totalC=allScored.reduce((a,x)=>a+x.coeff,0)
-                  const globalAvg=totalC?Math.round(totalW/totalC*10)/10:null
+                  const avg=totalC?Math.round(totalW/totalC*10)/10:null
                   return (
-                    <div onClick={()=>setNotesView('list')} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:12}}>
+                    <div key={cl.id} onClick={()=>setNotesView('list-'+cl.id)} className="hov" style={{background:G.card,border:`1px solid ${cl.color}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                        <div style={{width:10,height:10,borderRadius:'50%',background:cl.color,flexShrink:0}}/>
                         <div style={{flex:1}}>
-                          <div className="syne" style={{fontWeight:800,fontSize:15}}>Moyenne générale — tous devoirs</div>
-                          <div style={{color:G.muted,fontSize:12,marginTop:2}}>{grades.length} évaluation{grades.length>1?'s':''} · Cliquer pour le détail →</div>
+                          <div className="syne" style={{fontWeight:800,fontSize:15}}>{cl.name}</div>
+                          <div style={{color:G.muted,fontSize:12,marginTop:2}}>{classGrades.length} évaluation{classGrades.length>1?'s':''} · {classStudents.length} élève{classStudents.length>1?'s':''} · Voir le détail →</div>
                         </div>
-                        <div className="syne" style={{fontSize:30,fontWeight:800,color:globalAvg>=10?G.accentGreen:G.accentHot}}>{globalAvg??'—'}/20</div>
+                        <div className="syne" style={{fontSize:28,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg??'—'}/20</div>
                       </div>
-                      <div style={{marginTop:10}}><PBar value={globalAvg?(globalAvg/20)*100:0} color={globalAvg>=10?G.accentGreen:G.accentHot}/></div>
-                    </div>
-                  )
-                })()}
-              </>
-            )}
-
-            {/* ── LEVEL 2: list of grades (avg only, no detail) ── */}
-            {notesView==='list'&&(
-              <>
-                <button onClick={()=>setNotesView(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
-                <div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>Toutes les évaluations</div>
-                {grades.map(g=>{
-                  const cls=g.classIds.map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
-                  const concerned=students.filter(s=>g.classIds.includes(s.class_id))
-                  const scored=concerned.filter(s=>g.scores[s.id]!==undefined)
-                  const avg=scored.length?Math.round(scored.reduce((a,s)=>a+(parseFloat(g.scores[s.id])||0),0)/scored.length*10)/10:null
-                  return (
-                    <div key={g.id} onClick={()=>setNotesView(g.id)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,cursor:'pointer'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontWeight:600,fontSize:14}}>{g.title}</div>
-                          <div style={{display:'flex',gap:5,marginTop:4,flexWrap:'wrap'}}>
-                            <Bdg color={G.accentHot}>Coeff. {g.coefficient}</Bdg>
-                            {cls.map(c=><Bdg key={c.id} color={c.color}>{c.name}</Bdg>)}
-                          </div>
-                        </div>
-                        <div style={{textAlign:'right',flexShrink:0}}>
-                          <div className="syne" style={{fontSize:22,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg??'—'}/20</div>
-                          <div style={{fontSize:10,color:G.muted}}>Moy. classe</div>
-                        </div>
-                      </div>
+                      <PBar value={avg?(avg/20)*100:0} color={avg>=10?G.accentGreen:G.accentHot}/>
                     </div>
                   )
                 })}
               </>
             )}
+
+            {/* ── LEVEL 2: list of grades filtered by class ── */}
+            {notesView&&notesView.startsWith('list-')&&(()=>{
+              const clId=notesView.replace('list-','')
+              const cl=classes.find(c=>c.id===clId)
+              const classGrades=grades.filter(g=>g.classIds.includes(clId))
+              return (
+                <>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <button onClick={()=>setNotesView(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>← Retour</button>
+                    {cl&&<><div style={{width:9,height:9,borderRadius:'50%',background:cl.color}}/><div className="syne" style={{fontWeight:700,fontSize:15}}>{cl.name}</div></>}
+                  </div>
+                  {classGrades.map(g=>{
+                    const concerned=students.filter(s=>g.classIds.includes(s.class_id))
+                    const scored=concerned.filter(s=>g.scores[s.id]!==undefined)
+                    const avg=scored.length?Math.round(scored.reduce((a,s)=>a+(parseFloat(g.scores[s.id])||0),0)/scored.length*10)/10:null
+                    return (
+                      <div key={g.id} onClick={()=>setNotesView(g.id)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,cursor:'pointer'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:600,fontSize:14}}>{g.title}</div>
+                            <Bdg color={G.accentHot}>Coeff. {g.coefficient}</Bdg>
+                          </div>
+                          <div style={{textAlign:'right',flexShrink:0}}>
+                            <div className="syne" style={{fontSize:22,fontWeight:800,color:avg>=10?G.accentGreen:G.accentHot}}>{avg??'—'}/20</div>
+                            <div style={{fontSize:10,color:G.muted}}>Moy. classe</div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )
+            })()}
 
             {/* ── LEVEL 3: grade detail per student ── */}
             {notesView&&notesView!=='list'&&(()=>{
@@ -1678,7 +1682,7 @@ function TeacherApp({onLogout}) {
               return (
                 <>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <button onClick={()=>setNotesView('list')} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>← Retour</button>
+                    <button onClick={()=>{ const clId=g.classIds[0]; setNotesView(clId?'list-'+clId:null) }} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>← Retour</button>
                     <div className="syne" style={{fontWeight:700,fontSize:15,flex:1}}>{g.title}</div>
                     <div style={{display:'flex',gap:5}}>
                       <button onClick={()=>{setEditingGrade(g.id);setGradeForm({title:g.title,coefficient:g.coefficient,classIds:g.classIds,scores:{...g.scores}});setNotesView(null)}} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>✏️</button>
@@ -1816,41 +1820,38 @@ function TeacherApp({onLogout}) {
 
       {tab==='game'&&!gameActive&&(
         <div style={{position:'absolute',inset:0,zIndex:10,background:G.bg,display:'flex',flexDirection:'column',overflow:'auto'}}>
-          <div style={{padding:20,display:'flex',flexDirection:'column',gap:14}}>
-            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques NDRC</div>
-            {/* Game 1: available */}
-            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:14,padding:18,cursor:'pointer'}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🏙️</div>
-                <div style={{flex:1}}>
-                  <div className="syne" style={{fontWeight:700,fontSize:15}}>La quête du référencement</div>
-                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div>
-                </div>
+          <div style={{padding:20,display:'flex',flexDirection:'column',gap:12}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>🎮 Jeux pédagogiques</div>
+            <div style={{color:G.muted,fontSize:13}}>Aperçu de tous les jeux disponibles pour vos classes.</div>
+
+            <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accent,letterSpacing:1,marginTop:4}}>NDRC</div>
+            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:11}}>
+                <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏙️</div>
+                <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>La quête du référencement</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div></div>
                 <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
               </div>
             </div>
-            {/* Game 2: coming soon */}
-            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
-                <div style={{flex:1}}>
-                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 2</div>
-                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+            {['Jeu NDRC 2','Jeu NDRC 3'].map((label,i)=>(
+              <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
+                <div style={{display:'flex',alignItems:'center',gap:11}}>
+                  <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
+                  <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
+                  <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
                 </div>
-                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
               </div>
-            </div>
-            {/* Game 3: coming soon */}
-            <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:18,opacity:.6}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <div style={{width:48,height:48,borderRadius:12,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>🔒</div>
-                <div style={{flex:1}}>
-                  <div className="syne" style={{fontWeight:700,fontSize:15,color:G.muted}}>Jeu 3</div>
-                  <div style={{color:G.muted,fontSize:12,marginTop:2}}>Bientôt disponible</div>
+            ))}
+
+            <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accentHot,letterSpacing:1,marginTop:6}}>MCO</div>
+            {['Jeu MCO 1','Jeu MCO 2','Jeu MCO 3'].map((label,i)=>(
+              <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
+                <div style={{display:'flex',alignItems:'center',gap:11}}>
+                  <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
+                  <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14,color:G.muted}}>{label}</div><div style={{color:G.muted,fontSize:12}}>Bientôt disponible</div></div>
+                  <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
                 </div>
-                <div style={{background:G.border,color:G.muted,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>À venir</div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       )}
