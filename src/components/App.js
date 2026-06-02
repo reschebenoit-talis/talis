@@ -581,9 +581,17 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     ;(rRes.data||[]).forEach(r=>{ resMap[r.quiz_id]=r })
     setResults(resMap)
     setMsgs(mRes.data||[])
-    // Load student grades
-    const {data:gData}=await supabase.from('grade_scores').select('*,grades(title,coefficient,grade_classes(class_id))').eq('student_id',student.id)
-    setGrades((gData||[]).map(gs=>({...gs.grades,score:gs.score})).filter(g=>g&&g.grade_classes?.some(gc=>gc.class_id===student.class_id)))
+    // Load student grades + all scores for class stats (no names)
+    const {data:gData}=await supabase.from('grade_scores').select('*,grades(title,coefficient,grade_classes(class_id),grade_scores(score))').eq('student_id',student.id)
+    setGrades((gData||[]).map(gs=>{
+      const g=gs.grades; if(!g) return null
+      if(!g.grade_classes?.some(gc=>gc.class_id===student.class_id)) return null
+      const allScores=(g.grade_scores||[]).map(s=>parseFloat(s.score)).filter(n=>!isNaN(n))
+      const classAvg=allScores.length?Math.round(allScores.reduce((a,b)=>a+b,0)/allScores.length*10)/10:null
+      const classMin=allScores.length?Math.min(...allScores):null
+      const classMax=allScores.length?Math.max(...allScores):null
+      return {...g,score:gs.score,classAvg,classMin,classMax}
+    }).filter(Boolean))
     setLoading(false)
   }
 
@@ -767,18 +775,40 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             <div className="syne" style={{fontSize:18,fontWeight:800}}>📝 Mes notes</div>
             {grades.length===0&&<div style={{color:G.muted,fontSize:13}}>Aucune note publiée pour le moment.</div>}
             {grades.map((g,i)=>{
-              const color=parseFloat(g.score)>=10?G.accentGreen:G.accentHot
+              const myScore=parseFloat(g.score)
+              const color=myScore>=10?G.accentGreen:G.accentHot
+              const aboveAvg=g.classAvg!==null&&myScore>=g.classAvg
               return (
                 <div key={i} style={{background:G.card,border:`1px solid ${color}33`,borderRadius:13,padding:14}}>
-                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  {/* Header: title + my score */}
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                     <div style={{flex:1}}>
                       <div className="syne" style={{fontWeight:700,fontSize:14}}>{g.title}</div>
                       <Bdg color={G.muted}>Coeff. {g.coefficient}</Bdg>
                     </div>
-                    <div className="syne" style={{fontSize:24,fontWeight:800,color}}>{g.score}/20</div>
+                    <div style={{textAlign:'right'}}>
+                      <div className="syne" style={{fontSize:26,fontWeight:800,color,lineHeight:1}}>{myScore}/20</div>
+                      <div style={{fontSize:10,color:aboveAvg?G.accentGreen:G.accentHot,fontWeight:600,marginTop:2}}>
+                        {aboveAvg?'↑ Au-dessus de la moyenne':'↓ En dessous de la moyenne'}
+                      </div>
+                    </div>
                   </div>
-                  <PBar value={(parseFloat(g.score)/20)*100} color={color}/>
-                  <div style={{fontSize:11,color:G.muted,marginTop:5}}>{parseFloat(g.score)>=10?'✅ Validé':'❌ En dessous de la moyenne'}</div>
+                  <PBar value={(myScore/20)*100} color={color}/>
+                  {/* Class stats */}
+                  {g.classAvg!==null&&(
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginTop:10}}>
+                      {[
+                        ['📉 Plus basse',g.classMin,G.accentHot],
+                        ['📊 Moyenne',g.classAvg,G.gold],
+                        ['📈 Plus haute',g.classMax,G.accentGreen],
+                      ].map(([label,val,c])=>(
+                        <div key={label} style={{background:G.surface,borderRadius:8,padding:'7px 8px',textAlign:'center'}}>
+                          <div style={{fontSize:9,color:G.muted,marginBottom:3}}>{label}</div>
+                          <div className="syne" style={{fontSize:16,fontWeight:800,color:c}}>{val}/20</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )
             })}
