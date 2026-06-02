@@ -1630,7 +1630,7 @@ function TeacherApp({onLogout}) {
                           const isOpen=openModule==='mod-'+sec+'-'+mod
                           return (
                           <div key={mod} style={{marginLeft:10,marginTop:5}}>
-                            <div onClick={()=>setOpenModule(isOpen?'sec-'+sec:'mod-'+sec+'-'+mod)} className="hov" style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,padding:'10px 13px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
+                            <div onClick={()=>setOpenModule('mod-'+sec+'-'+mod)} className="hov" style={{background:isOpen?G.accent+'22':G.surface,border:`1px solid ${isOpen?G.accent+'44':G.border}`,borderRadius:10,padding:'10px 13px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
                               <div style={{flex:1}}>
                                 <div className="syne" style={{fontWeight:700,fontSize:13}}>{mod}</div>
                                 <div style={{display:'flex',gap:7,marginTop:3,flexWrap:'wrap'}}>
