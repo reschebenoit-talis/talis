@@ -483,6 +483,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [results,setResults]=useState({})
   const [loading,setLoading]=useState(true)
   const [driveItem,setDriveItem]=useState(null)
+  const [activeModule,setActiveModule]=useState(null) // {name, type} or null
   const [activeQuiz,setActiveQuiz]=useState(null)
   const [qState,setQState]=useState(null)
   const [showPwd,setShowPwd]=useState(student.must_change_password)
@@ -710,36 +711,54 @@ function StudentApp({student,onLogout,onPwdSaved}) {
           </div>
         )}
 
-        {tab==='videos'&&(
-          <div className="fade-up" style={{height:'100%'}}>
-            {driveItem?<DriveViewer url={driveItem.drive_url} title={driveItem.title} onBack={()=>setDriveItem(null)} accent={G.accent}/>:(
+        {(tab==='videos'||tab==='fiches')&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
+            {driveItem?(
+              <DriveViewer url={driveItem.drive_url} title={driveItem.title} onBack={()=>setDriveItem(null)} accent={tab==='videos'?G.accent:G.accentCyan}/>
+            ):activeModule?(
               <>
-                <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>🎬 Vidéos</div>
-                {!videos.length&&<div style={{color:G.muted,fontSize:13}}>Aucune vidéo pour ta classe.</div>}
-                {videos.map(v=>(
+                <button onClick={()=>setActiveModule(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',marginBottom:10,fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour</button>
+                <div className="syne" style={{fontWeight:700,fontSize:15,marginBottom:12}}>{activeModule.name}</div>
+                {activeModule.type==='videos'&&videos.filter(v=>v.module===activeModule.name).map(v=>(
                   <div key={v.id} onClick={()=>setDriveItem(v)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,overflow:'hidden',marginBottom:9}}>
-                    <div style={{height:76,background:`linear-gradient(135deg,${G.accent}33,${G.accentHot}22)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:38}}>{v.emoji||'🎬'}</div>
-                    <div style={{padding:12}}><Bdg color={G.accent}>{v.section}</Bdg><div style={{fontWeight:500,margin:'5px 0 3px',fontSize:13}}>{v.title}</div><div style={{color:G.muted,fontSize:12}}>{v.duration}</div></div>
+                    <div style={{height:70,background:`linear-gradient(135deg,${G.accent}33,${G.accentHot}22)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36}}>{v.emoji||'🎬'}</div>
+                    <div style={{padding:12}}><div style={{fontWeight:500,fontSize:13,marginBottom:3}}>{v.title}</div><div style={{color:G.muted,fontSize:12}}>{v.duration}</div></div>
+                  </div>
+                ))}
+                {activeModule.type==='fiches'&&fiches.filter(f=>f.module===activeModule.name).map(f=>(
+                  <div key={f.id} onClick={()=>setDriveItem(f)} className="hov" style={{background:G.card,border:`1px solid ${(f.color||G.accent)+'33'}`,borderRadius:13,padding:14,marginBottom:9,borderLeft:`3px solid ${f.color||G.accent}`}}>
+                    <div style={{fontWeight:600,fontSize:13,marginBottom:4}}>{f.title}</div>
+                    <div style={{color:G.muted,fontSize:12}}>Appuyer pour lire →</div>
                   </div>
                 ))}
               </>
-            )}
-          </div>
-        )}
-
-        {tab==='fiches'&&(
-          <div className="fade-up" style={{height:'100%'}}>
-            {driveItem?<DriveViewer url={driveItem.drive_url} title={driveItem.title} onBack={()=>setDriveItem(null)} accent={G.accentCyan}/>:(
+            ):(
               <>
-                <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>📄 Fiches de révision</div>
-                {!fiches.length&&<div style={{color:G.muted,fontSize:13}}>Aucune fiche pour ta classe.</div>}
-                {fiches.map(f=>(
-                  <div key={f.id} onClick={()=>setDriveItem(f)} className="hov" style={{background:G.card,border:`1px solid ${(f.color||G.accent)+'33'}`,borderRadius:13,padding:14,marginBottom:9,borderLeft:`3px solid ${f.color||G.accent}`}}>
-                    <Bdg color={f.color||G.accent}>{f.section}</Bdg>
-                    <div style={{fontWeight:600,fontSize:13,marginTop:6}}>{f.title}</div>
-                    <div style={{color:G.muted,fontSize:12,marginTop:3}}>Appuyer pour lire →</div>
-                  </div>
-                ))}
+                <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>{tab==='videos'?'🎬 Vidéos':'📄 Fiches de révision'}</div>
+                {(()=>{
+                  const items=tab==='videos'?videos:fiches
+                  if(!items.length) return <div style={{color:G.muted,fontSize:13}}>Aucun contenu pour ta classe.</div>
+                  const modules=[...new Set(items.map(i=>i.module||'Général'))].sort()
+                  return modules.map(mod=>{
+                    const modItems=items.filter(i=>(i.module||'Général')===mod)
+                    const nbVideos=tab==='videos'?modItems.length:0
+                    const nbFiches=tab==='fiches'?modItems.length:0
+                    return (
+                      <div key={mod} onClick={()=>setActiveModule({name:mod,type:tab==='videos'?'videos':'fiches'})} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:16,marginBottom:9,cursor:'pointer'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{width:42,height:42,borderRadius:11,background:`linear-gradient(135deg,${G.accent}33,${G.accentHot}22)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{tab==='videos'?'🎬':'📄'}</div>
+                          <div style={{flex:1}}>
+                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{mod}</div>
+                            <div style={{color:G.muted,fontSize:12,marginTop:3}}>
+                              {tab==='videos'?`${nbVideos} vidéo${nbVideos>1?'s':''}`:  `${nbFiches} fiche${nbFiches>1?'s':''}`}
+                            </div>
+                          </div>
+                          <div style={{color:G.accent,fontSize:16}}>→</div>
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
               </>
             )}
           </div>
@@ -747,6 +766,9 @@ function StudentApp({student,onLogout,onPwdSaved}) {
 
         {tab==='quiz'&&(
           <div className="fade-up">
+            {activeModule&&!activeQuiz&&(
+              <button onClick={()=>setActiveModule(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',marginBottom:10,fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Retour aux modules</button>
+            )}
             {activeQuiz&&qState&&!qState.done?(
               <div>
                 <div style={{color:G.muted,fontSize:12,marginBottom:6}}>Question {qState.idx+1}/{activeQuiz.questions.length}</div>
@@ -774,24 +796,60 @@ function StudentApp({student,onLogout,onPwdSaved}) {
               <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>🧠 Quiz</div>
                 {!quizzes.length&&<div style={{color:G.muted,fontSize:13}}>Aucun quiz pour ta classe.</div>}
-                {quizzes.map(q=>{
-                  const done=results[q.id]
-                  const passed=done&&done.score>=q.pass_score
-                  return (
-                    <div key={q.id} style={{background:G.card,border:`1px solid ${passed?G.accentGreen+'44':G.border}`,borderRadius:13,padding:14,marginBottom:9}}>
-                      <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:7}}>
-                        <div style={{fontWeight:600,fontSize:13,flex:1}}>{q.title}</div>
-                        {passed&&<Bdg color={G.accentGreen}>✓ Validé</Bdg>}
-                        {done&&!passed&&<Bdg color={G.gold}>Réessayer</Bdg>}
+                {(()=>{
+                  if(!quizzes.length) return null
+                  const modules=[...new Set(quizzes.map(q=>q.module||'Général'))].sort()
+                  if(modules.length===1&&modules[0]==='Général'){
+                    // No modules set: show flat list
+                    return quizzes.map(q=>{
+                      const done=results[q.id]; const passed=done&&done.score>=q.pass_score
+                      return (
+                        <div key={q.id} style={{background:G.card,border:`1px solid ${passed?G.accentGreen+'44':G.border}`,borderRadius:13,padding:14,marginBottom:9}}>
+                          <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:7}}>
+                            <div style={{fontWeight:600,fontSize:13,flex:1}}>{q.title}</div>
+                            {passed&&<Bdg color={G.accentGreen}>✓ Validé</Bdg>}
+                            {done&&!passed&&<Bdg color={G.gold}>Réessayer</Bdg>}
+                          </div>
+                          <div style={{color:G.muted,fontSize:12,marginBottom:9}}>{(q.quiz_questions||[]).length} question{(q.quiz_questions||[]).length>1?'s':''} · Seuil : {q.pass_score}%{done&&<span style={{marginLeft:7,color:done.score>=q.pass_score?G.accentGreen:G.accentHot}}>· Dernier : {done.score}%</span>}</div>
+                          {!passed&&<Btn sm onClick={()=>startQuiz(q)}>Commencer ▶</Btn>}
+                        </div>
+                      )
+                    })
+                  }
+                  // Show by module
+                  if(!activeModule) return modules.map(mod=>{
+                    const modQ=quizzes.filter(q=>(q.module||'Général')===mod)
+                    const done=modQ.filter(q=>results[q.id]).length
+                    const validated=modQ.filter(q=>results[q.id]&&results[q.id].score>=q.pass_score).length
+                    return (
+                      <div key={mod} onClick={()=>setActiveModule({name:mod,type:'quizzes'})} className="hov" style={{background:G.card,border:`1px solid ${G.gold}33`,borderRadius:13,padding:16,marginBottom:9,cursor:'pointer'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{width:42,height:42,borderRadius:11,background:G.gold+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>🧠</div>
+                          <div style={{flex:1}}>
+                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{mod}</div>
+                            <div style={{color:G.muted,fontSize:12,marginTop:3}}>{modQ.length} quiz · {validated} validé{validated>1?'s':''}</div>
+                          </div>
+                          <div style={{color:G.accent,fontSize:16}}>→</div>
+                        </div>
                       </div>
-                      <div style={{color:G.muted,fontSize:12,marginBottom:9}}>
-                        {(q.quiz_questions||[]).length} question{(q.quiz_questions||[]).length>1?'s':''} · Seuil : {q.pass_score}%
-                        {done&&<span style={{marginLeft:7,color:done.score>=q.pass_score?G.accentGreen:G.accentHot}}>· Dernier : {done.score}%</span>}
+                    )
+                  })
+                  // Inside a module
+                  return quizzes.filter(q=>(q.module||'Général')===activeModule?.name).map(q=>{
+                    const done=results[q.id]; const passed=done&&done.score>=q.pass_score
+                    return (
+                      <div key={q.id} style={{background:G.card,border:`1px solid ${passed?G.accentGreen+'44':G.border}`,borderRadius:13,padding:14,marginBottom:9}}>
+                        <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:7}}>
+                          <div style={{fontWeight:600,fontSize:13,flex:1}}>{q.title}</div>
+                          {passed&&<Bdg color={G.accentGreen}>✓ Validé</Bdg>}
+                          {done&&!passed&&<Bdg color={G.gold}>Réessayer</Bdg>}
+                        </div>
+                        <div style={{color:G.muted,fontSize:12,marginBottom:9}}>{(q.quiz_questions||[]).length} question{(q.quiz_questions||[]).length>1?'s':''} · Seuil : {q.pass_score}%{done&&<span style={{marginLeft:7,color:done.score>=q.pass_score?G.accentGreen:G.accentHot}}>· Dernier : {done.score}%</span>}</div>
+                        {!passed&&<Btn sm onClick={()=>startQuiz(q)}>Commencer ▶</Btn>}
                       </div>
-                      {!passed&&<Btn sm onClick={()=>startQuiz(q)}>Commencer ▶</Btn>}
-                    </div>
-                  )
-                })}
+                    )
+                  })
+                })()}
               </>
             )}
           </div>
@@ -975,7 +1033,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false);if(t.id!=='videos'&&t.id!=='fiches'&&t.id!=='quiz')setActiveModule(null)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
@@ -1084,8 +1142,9 @@ function TeacherApp({onLogout}) {
   const [selClass,setSelClass]=useState('all')
   const [showImport,setShowImport]=useState(false)
   const [drivePreview,setDrivePreview]=useState(null)
+  const [openModule,setOpenModule]=useState(null)
   const [form,setForm]=useState({vClassIds:[],fClassIds:[]})
-  const [quiz,setQuiz]=useState({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
+  const [quiz,setQuiz]=useState({title:'',module:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
   const [saving,setSaving]=useState(false)
   const [gameActive,setGameActive]=useState(false)
@@ -1236,7 +1295,7 @@ function TeacherApp({onLogout}) {
   const addVideo=async()=>{
     if(!form.vTitle||!form.vClassIds?.length) return
     setSaving(true)
-    const {data:v}=await supabase.from('videos').insert({title:form.vTitle,section:form.vSection||'Général',duration:form.vDur||'—',emoji:form.vEmoji||'🎬',drive_url:form.vUrl||''}).select().single()
+    const {data:v}=await supabase.from('videos').insert({title:form.vTitle,module:form.vModule||'Général',section:form.vSection||'',duration:form.vDur||'—',emoji:form.vEmoji||'🎬',drive_url:form.vUrl||''}).select().single()
     if(v){
       await supabase.from('video_classes').insert(form.vClassIds.map(cid=>({video_id:v.id,class_id:cid})))
       setVideos(vs=>[{...v,classIds:form.vClassIds},...vs])
@@ -1250,7 +1309,7 @@ function TeacherApp({onLogout}) {
     if(!form.fTitle||!form.fClassIds?.length) return
     setSaving(true)
     const color=CLASS_COLORS[Math.floor(Math.random()*CLASS_COLORS.length)]
-    const {data:f}=await supabase.from('fiches').insert({title:form.fTitle,section:form.fSection||'Général',drive_url:form.fUrl||'',color}).select().single()
+    const {data:f}=await supabase.from('fiches').insert({title:form.fTitle,module:form.fModule||'Général',section:form.fSection||'',drive_url:form.fUrl||'',color}).select().single()
     if(f){
       await supabase.from('fiche_classes').insert(form.fClassIds.map(cid=>({fiche_id:f.id,class_id:cid})))
       setFiches(fs=>[{...f,classIds:form.fClassIds},...fs])
@@ -1263,13 +1322,13 @@ function TeacherApp({onLogout}) {
   const addQuiz=async()=>{
     if(!quiz.title||!quiz.classIds.length) return
     setSaving(true)
-    const {data:q}=await supabase.from('quizzes').insert({title:quiz.title,pass_score:quiz.passScore}).select().single()
+    const {data:q}=await supabase.from('quizzes').insert({title:quiz.title,module:quiz.module||'Général',pass_score:quiz.passScore}).select().single()
     if(q){
       await supabase.from('quiz_classes').insert(quiz.classIds.map(cid=>({quiz_id:q.id,class_id:cid})))
       const validQs=quiz.questions.filter(x=>x.q&&x.choices[0])
       await supabase.from('quiz_questions').insert(validQs.map((x,i)=>({quiz_id:q.id,question:x.q,choices:x.choices,answer_index:x.answer,position:i})))
       setQuizzes(qs=>[{...q,classIds:quiz.classIds,quiz_questions:validQs.map((x,i)=>({question:x.q,choices:x.choices,answer_index:x.answer,position:i}))},...qs])
-      setQuiz({title:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
+      setQuiz({title:'',module:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
       alert('✅ Quiz publié !')
     }
     setSaving(false)
@@ -1510,37 +1569,62 @@ function TeacherApp({onLogout}) {
           <div className="fade-up">
             <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>📚 Contenu publié</div>
-                {[['🎬 Vidéos',videos,G.accent,'video'],['📄 Fiches',fiches,G.accentCyan,'fiche'],['🧠 Quiz',quizzes,G.gold,'quiz']].map(([label,items,color,type])=>(
-                  <div key={type} style={{marginBottom:15}}>
-                    <div className="syne" style={{fontWeight:700,marginBottom:7,color,fontSize:13}}>{label} ({items.length})</div>
-                    {!items.length&&<div style={{color:G.muted,fontSize:12}}>Aucun contenu.</div>}
-                    {items.map(item=>{
-                      const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
-                      return (
-                      <div key={item.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:11,padding:'10px 13px',marginBottom:6}}>
-                        <div style={{display:'flex',alignItems:'center',gap:10}}>
-                          <div style={{fontSize:18,flexShrink:0}}>{type==='quiz'?'🧠':type==='video'?item.emoji:'📄'}</div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
-                            {type!=='quiz'&&<div style={{fontSize:10,color:item.drive_url?G.accentGreen:G.accentHot,marginTop:2}}>{item.drive_url?'✅ Lien Drive':'⚠️ Pas de lien Drive'}</div>}
+                {(()=>{
+                  const allItems=[
+                    ...videos.map(i=>({...i,_type:'video',_icon:i.emoji||'🎬',_color:G.accent})),
+                    ...fiches.map(i=>({...i,_type:'fiche',_icon:'📄',_color:G.accentCyan})),
+                    ...quizzes.map(i=>({...i,_type:'quiz',_icon:'🧠',_color:G.gold})),
+                  ]
+                  const modules=[...new Set(allItems.map(i=>i.module||'Général'))].sort()
+                  if(!allItems.length) return <div style={{color:G.muted,fontSize:13}}>Aucun contenu publié.</div>
+                  return modules.map(mod=>{
+                    const modItems=allItems.filter(i=>(i.module||'Général')===mod)
+                    const nbV=modItems.filter(i=>i._type==='video').length
+                    const nbF=modItems.filter(i=>i._type==='fiche').length
+                    const nbQ=modItems.filter(i=>i._type==='quiz').length
+                    const isOpen=openModule===mod
+                    return (
+                      <div key={mod} style={{marginBottom:9}}>
+                        <div onClick={()=>setOpenModule(isOpen?null:mod)} className="hov" style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:12,padding:'12px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:11}}>
+                          <div style={{flex:1}}>
+                            <div className="syne" style={{fontWeight:700,fontSize:14}}>{mod}</div>
+                            <div style={{display:'flex',gap:8,marginTop:4,flexWrap:'wrap'}}>
+                              {nbV>0&&<span style={{fontSize:11,color:G.accent}}>🎬 {nbV} vidéo{nbV>1?'s':''}</span>}
+                              {nbF>0&&<span style={{fontSize:11,color:G.accentCyan}}>📄 {nbF} fiche{nbF>1?'s':''}</span>}
+                              {nbQ>0&&<span style={{fontSize:11,color:G.gold}}>🧠 {nbQ} quiz</span>}
+                            </div>
                           </div>
-                          <div style={{display:'flex',gap:5,flexShrink:0}}>
-                            {type!=='quiz'&&item.drive_url&&<button onClick={()=>setDrivePreview(item)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:13}}>👁</button>}
-                            <button onClick={()=>deleteContent(type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:13}}>🗑</button>
-                          </div>
+                          <div style={{color:G.muted,fontSize:18,transition:'transform .2s',transform:isOpen?'rotate(90deg)':'none'}}>›</div>
                         </div>
-                        {itemClasses.length>0&&(
-                          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:7}}>
-                            {itemClasses.map(cl=>(
-                              <span key={cl.id} style={{background:cl.color+'22',color:cl.color,border:`1px solid ${cl.color}44`,borderRadius:5,padding:'2px 7px',fontSize:10,fontWeight:600}}>{cl.name}</span>
-                            ))}
+                        {isOpen&&(
+                          <div style={{marginTop:4,display:'flex',flexDirection:'column',gap:5,paddingLeft:8}}>
+                            {modItems.map(item=>{
+                              const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
+                              return (
+                                <div key={item.id} style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,padding:'9px 12px'}}>
+                                  <div style={{display:'flex',alignItems:'center',gap:9}}>
+                                    <div style={{fontSize:16,flexShrink:0}}>{item._icon}</div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                      <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
+                                      <div style={{display:'flex',gap:4,marginTop:3,flexWrap:'wrap'}}>
+                                        {itemClasses.map(c=><span key={c.id} style={{background:c.color+'22',color:c.color,border:`1px solid ${c.color}44`,borderRadius:4,padding:'1px 5px',fontSize:9,fontWeight:600}}>{c.name}</span>)}
+                                        {item._type!=='quiz'&&<span style={{fontSize:9,color:item.drive_url?G.accentGreen:G.accentHot}}>{item.drive_url?'✅':'⚠️'}</span>}
+                                      </div>
+                                    </div>
+                                    <div style={{display:'flex',gap:4,flexShrink:0}}>
+                                      {item._type!=='quiz'&&item.drive_url&&<button onClick={()=>setDrivePreview(item)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:12}}>👁</button>}
+                                      <button onClick={()=>deleteContent(item._type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:12}}>🗑</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
-                    )})}
-
-                  </div>
-                ))}
+                    )
+                  })
+                })()}
             </>
           </div>
         )}
@@ -1759,6 +1843,7 @@ function TeacherApp({onLogout}) {
               <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accent,fontSize:13}}>🎬 Nouvelle vidéo</div>
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <Inp placeholder="Titre *" value={form.vTitle||''} onChange={e=>setForm({...form,vTitle:e.target.value})}/>
+                <Inp placeholder="Nom du module (ex: Module 1 - Vente, Bloc 2…) *" value={form.vModule||''} onChange={e=>setForm({...form,vModule:e.target.value})}/>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7}}>
                   <Inp placeholder="Matière" value={form.vSection||''} onChange={e=>setForm({...form,vSection:e.target.value})}/>
                   <Inp placeholder="Durée (12:34)" value={form.vDur||''} onChange={e=>setForm({...form,vDur:e.target.value})}/>
@@ -1776,6 +1861,7 @@ function TeacherApp({onLogout}) {
               <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accentCyan,fontSize:13}}>📄 Nouvelle fiche</div>
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <Inp placeholder="Titre *" value={form.fTitle||''} onChange={e=>setForm({...form,fTitle:e.target.value})}/>
+                <Inp placeholder="Nom du module (ex: Module 1 - Vente, Bloc 2…) *" value={form.fModule||''} onChange={e=>setForm({...form,fModule:e.target.value})}/>
                 <Inp placeholder="Matière" value={form.fSection||''} onChange={e=>setForm({...form,fSection:e.target.value})}/>
                 <Inp placeholder="🔗 Lien Google Drive" value={form.fUrl||''} onChange={e=>setForm({...form,fUrl:e.target.value})}/>
                 <div style={{fontSize:12,color:G.muted}}>Classes :</div>
@@ -1789,6 +1875,7 @@ function TeacherApp({onLogout}) {
               <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.gold,fontSize:13}}>🧠 Créer un quiz</div>
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <Inp placeholder="Titre *" value={quiz.title} onChange={e=>setQuiz({...quiz,title:e.target.value})}/>
+                <Inp placeholder="Nom du module (ex: Module 1 - Vente, Bloc 2…) *" value={quiz.module||''} onChange={e=>setQuiz({...quiz,module:e.target.value})}/>
                 <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                   <span style={{fontSize:12,color:G.muted}}>Seuil :</span>
                   {[60,70,80,90,100].map(p=>(
