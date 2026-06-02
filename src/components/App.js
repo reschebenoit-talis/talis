@@ -940,7 +940,8 @@ function TeacherApp({onLogout}) {
   const [saving,setSaving]=useState(false)
   const [presence,setPresence]=useState({})
   const [grades,setGrades]=useState([]) // [{id,title,coefficient,classIds,scores:{studentId:note}}]
-  const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}}) // {studentId: {is_online, last_seen_at}}
+  const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}})
+  const [editingGrade,setEditingGrade]=useState(null) // grade being edited
   const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
   const [readMsgs,setReadMsgs]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_read_msgs')||'{}') }catch{ return {} } })
   const sessionStart=useState(()=>new Date().toISOString())[0]
@@ -1378,7 +1379,7 @@ function TeacherApp({onLogout}) {
 
             {/* Create new grade */}
             <div style={{background:G.card,border:`1px solid ${G.accentHot}33`,borderRadius:14,padding:16}}>
-              <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accentHot,fontSize:13}}>➕ Nouvelle évaluation</div>
+              <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accentHot,fontSize:13}}>{editingGrade?'✏️ Modifier l’évaluation':'➕ Nouvelle évaluation'}</div>
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <Inp placeholder="Intitulé (ex: Contrôle chapitre 3)" value={gradeForm.title} onChange={e=>setGradeForm({...gradeForm,title:e.target.value})}/>
                 <div style={{display:'flex',alignItems:'center',gap:8}}>
@@ -1410,20 +1411,39 @@ function TeacherApp({onLogout}) {
                     </div>
                   </>
                 )}
-                <Btn v="hot" onClick={async()=>{
-                  if(!gradeForm.title||!gradeForm.classIds.length) return
-                  setSaving(true)
-                  const {data:g}=await supabase.from('grades').insert({title:gradeForm.title,coefficient:gradeForm.coefficient}).select().single()
-                  if(g){
-                    await supabase.from('grade_classes').insert(gradeForm.classIds.map(cid=>({grade_id:g.id,class_id:cid})))
-                    const scoreRows=Object.entries(gradeForm.scores).filter(([,v])=>v!=='').map(([sid,score])=>({grade_id:g.id,student_id:sid,score:parseFloat(score)}))
-                    if(scoreRows.length) await supabase.from('grade_scores').insert(scoreRows)
+                <div style={{display:'flex',gap:8}}>
+                  <Btn v="hot" onClick={async()=>{
+                    if(!gradeForm.title||!gradeForm.classIds.length) return
+                    setSaving(true)
+                    if(editingGrade){
+                      // UPDATE existing grade
+                      await supabase.from('grades').update({title:gradeForm.title,coefficient:gradeForm.coefficient}).eq('id',editingGrade)
+                      // Upsert scores
+                      const scoreRows=Object.entries(gradeForm.scores).filter(([,v])=>v!=='').map(([sid,score])=>({grade_id:editingGrade,student_id:sid,score:parseFloat(score)}))
+                      if(scoreRows.length) await supabase.from('grade_scores').upsert(scoreRows,{onConflict:'grade_id,student_id'})
+                      // Delete scores set to empty
+                      const toDelete=Object.entries(gradeForm.scores).filter(([,v])=>v==='').map(([sid])=>sid)
+                      if(toDelete.length) await supabase.from('grade_scores').delete().eq('grade_id',editingGrade).in('student_id',toDelete)
+                      setEditingGrade(null)
+                      alert('✅ Évaluation mise à jour !')
+                    } else {
+                      // CREATE new grade
+                      const {data:g}=await supabase.from('grades').insert({title:gradeForm.title,coefficient:gradeForm.coefficient}).select().single()
+                      if(g){
+                        await supabase.from('grade_classes').insert(gradeForm.classIds.map(cid=>({grade_id:g.id,class_id:cid})))
+                        const scoreRows=Object.entries(gradeForm.scores).filter(([,v])=>v!=='').map(([sid,score])=>({grade_id:g.id,student_id:sid,score:parseFloat(score)}))
+                        if(scoreRows.length) await supabase.from('grade_scores').insert(scoreRows)
+                        alert('✅ Évaluation publiée !')
+                      }
+                    }
                     await loadAll()
                     setGradeForm({title:'',coefficient:1,classIds:[],scores:{}})
-                    alert('✅ Évaluation publiée !')
-                  }
-                  setSaving(false)
-                }} disabled={!gradeForm.title||!gradeForm.classIds.length} loading={saving}>Publier l’évaluation</Btn>
+                    setSaving(false)
+                  }} disabled={!gradeForm.title||!gradeForm.classIds.length} loading={saving}>
+                    {editingGrade?'💾 Enregistrer les modifications':'Publier l’évaluation'}
+                  </Btn>
+                  {editingGrade&&<Btn v="ghost" onClick={()=>{setEditingGrade(null);setGradeForm({title:'',coefficient:1,classIds:[],scores:{}})}}>Annuler</Btn>}
+                </div>
               </div>
             </div>
 
@@ -1445,7 +1465,14 @@ function TeacherApp({onLogout}) {
                         {avg!==null&&<Bdg color={avg>=10?G.accentGreen:G.accentHot}>Moy. {avg}/20</Bdg>}
                       </div>
                     </div>
-                    <button onClick={async()=>{ if(window.confirm('Supprimer cette évaluation ?')){await supabase.from('grades').delete().eq('id',g.id);await loadAll()} }} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14}}>🗑</button>
+                    <div style={{display:'flex',gap:6}}>
+                      <button onClick={()=>{
+                        setEditingGrade(g.id)
+                        setGradeForm({title:g.title,coefficient:g.coefficient,classIds:g.classIds,scores:{...g.scores}})
+                        window.scrollTo({top:0,behavior:'smooth'})
+                      }} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}} title="Modifier">✏️</button>
+                      <button onClick={async()=>{ if(window.confirm('Supprimer cette évaluation ?')){await supabase.from('grades').delete().eq('id',g.id);await loadAll()} }} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14}} title="Supprimer">🗑</button>
+                    </div>
                   </div>
                   <div style={{display:'flex',flexDirection:'column',gap:5}}>
                     {concerned.map(s=>{
