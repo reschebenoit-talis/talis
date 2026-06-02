@@ -1175,6 +1175,8 @@ function TeacherApp({onLogout}) {
   const [showImport,setShowImport]=useState(false)
   const [drivePreview,setDrivePreview]=useState(null)
   const [openModule,setOpenModule]=useState(null)
+  const [tActiveSection,setTActiveSection]=useState(null)
+  const [tActiveModule,setTActiveModule]=useState(null)
   const [form,setForm]=useState({vClassIds:[],fClassIds:[]})
   const [quiz,setQuiz]=useState({title:'',module:'',classIds:[],passScore:80,questions:[{q:'',choices:['','','',''],answer:0}]})
   const [newClassName,setNewClassName]=useState('')
@@ -1427,7 +1429,7 @@ function TeacherApp({onLogout}) {
 
   return (
     <div className="app-root">
-      {drivePreview&&<DriveViewer url={drivePreview.drive_url} title={drivePreview.title} onBack={()=>setDrivePreview(null)} accent={G.accentHot}/>}
+
       {showImport&&<ExcelImporter classes={classes} onImport={handleImport} onClose={()=>{setShowImport(false);loadAll()}}/>}
 
       <div style={{padding:'10px 16px',display:'flex',alignItems:'center',gap:9,flexShrink:0,borderBottom:`1px solid ${G.border}`}}>
@@ -1598,81 +1600,122 @@ function TeacherApp({onLogout}) {
 
         {/* CONTENT */}
         {tab==='content'&&(
-          <div className="fade-up">
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',height:'100%'}}>
+            {/* LEVEL 3 — resource viewer */}
+            {drivePreview?(
+              <DriveViewer url={drivePreview.drive_url} title={drivePreview.title} onBack={()=>setDrivePreview(null)} accent={G.accentHot}/>
+            ):tActiveModule?(
+              /* LEVEL 3 — resource list */
+              <>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+                  <button onClick={()=>setTActiveModule(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>←</button>
+                  <div style={{color:G.muted,fontSize:12}}>{tActiveSection?.name} /</div>
+                  <div className="syne" style={{fontWeight:700,fontSize:14}}>{tActiveModule}</div>
+                </div>
+                {(()=>{
+                  const allItems=[
+                    ...videos.map(i=>({...i,_type:'video',_icon:i.emoji||'🎬'})),
+                    ...fiches.map(i=>({...i,_type:'fiche',_icon:'📄'})),
+                    ...quizzes.map(i=>({...i,_type:'quiz',_icon:'🧠'})),
+                  ].filter(i=>(i.section||'Général')===tActiveSection?.name&&(i.module||'Général')===tActiveModule)
+                  return allItems.map(item=>{
+                    const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
+                    return (
+                      <div key={item.id} onClick={item._type!=='quiz'&&item.drive_url?()=>setDrivePreview(item):undefined} className={item._type!=='quiz'&&item.drive_url?'hov':''} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:12,padding:'12px 14px',marginBottom:9,cursor:item._type!=='quiz'&&item.drive_url?'pointer':'default'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:10}}>
+                          <div style={{fontSize:22,flexShrink:0}}>{item._icon}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:600,fontSize:13,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
+                            <div style={{display:'flex',gap:5,marginTop:4,flexWrap:'wrap'}}>
+                              {itemClasses.map(c=><span key={c.id} style={{background:c.color+'22',color:c.color,border:`1px solid ${c.color}44`,borderRadius:4,padding:'1px 5px',fontSize:9,fontWeight:600}}>{c.name}</span>)}
+                              {item._type!=='quiz'&&<span style={{fontSize:10,color:item.drive_url?G.accentGreen:G.accentHot}}>{item.drive_url?'✅ Cliquer pour ouvrir':'⚠️ Pas de lien Drive'}</span>}
+                              {item._type==='quiz'&&<span style={{fontSize:10,color:G.muted}}>{(item.quiz_questions||[]).length} question{(item.quiz_questions||[]).length>1?'s':''}</span>}
+                            </div>
+                          </div>
+                          <div style={{display:'flex',gap:5,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                            <button onClick={()=>deleteContent(item._type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14}}>🗑</button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                })()}
+              </>
+            ):tActiveSection?(
+              /* LEVEL 2 — modules list */
+              <>
+                <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12}}>
+                  <button onClick={()=>setTActiveSection(null)} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:14}}>←</button>
+                  <div className="syne" style={{fontWeight:700,fontSize:15}}>{tActiveSection.name}</div>
+                </div>
+                {(()=>{
+                  const allItems=[
+                    ...videos.map(i=>({...i,_type:'video'})),
+                    ...fiches.map(i=>({...i,_type:'fiche'})),
+                    ...quizzes.map(i=>({...i,_type:'quiz'})),
+                  ].filter(i=>(i.section||'Général')===tActiveSection.name)
+                  const modules=[...new Set(allItems.map(i=>i.module||'Général'))].sort()
+                  return modules.map(mod=>{
+                    const modItems=allItems.filter(i=>(i.module||'Général')===mod)
+                    const nbV=modItems.filter(i=>i._type==='video').length
+                    const nbF=modItems.filter(i=>i._type==='fiche').length
+                    const nbQ=modItems.filter(i=>i._type==='quiz').length
+                    return (
+                      <div key={mod} onClick={()=>setTActiveModule(mod)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:12,padding:14,marginBottom:9,cursor:'pointer',display:'flex',alignItems:'center',gap:12}}>
+                        <div style={{width:40,height:40,borderRadius:10,background:G.accent+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📁</div>
+                        <div style={{flex:1}}>
+                          <div className="syne" style={{fontWeight:700,fontSize:13}}>{mod}</div>
+                          <div style={{display:'flex',gap:8,marginTop:4}}>
+                            {nbV>0&&<span style={{fontSize:11,color:G.accent}}>🎬 {nbV}</span>}
+                            {nbF>0&&<span style={{fontSize:11,color:G.accentCyan}}>📄 {nbF}</span>}
+                            {nbQ>0&&<span style={{fontSize:11,color:G.gold}}>🧠 {nbQ}</span>}
+                          </div>
+                        </div>
+                        <div style={{color:G.accent,fontSize:16}}>→</div>
+                      </div>
+                    )
+                  })
+                })()}
+              </>
+            ):(
+              /* LEVEL 1 — sections (matières) */
+              <>
                 <div className="syne" style={{fontSize:18,fontWeight:800,marginBottom:13}}>📚 Contenu publié</div>
                 {(()=>{
                   const allItems=[
-                    ...videos.map(i=>({...i,_type:'video',_icon:i.emoji||'🎬',_color:G.accent})),
-                    ...fiches.map(i=>({...i,_type:'fiche',_icon:'📄',_color:G.accentCyan})),
-                    ...quizzes.map(i=>({...i,_type:'quiz',_icon:'🧠',_color:G.gold})),
+                    ...videos.map(i=>({...i,_type:'video'})),
+                    ...fiches.map(i=>({...i,_type:'fiche'})),
+                    ...quizzes.map(i=>({...i,_type:'quiz'})),
                   ]
                   if(!allItems.length) return <div style={{color:G.muted,fontSize:13}}>Aucun contenu publié.</div>
                   const sections=[...new Set(allItems.map(i=>i.section||'Général'))].sort()
                   return sections.map(sec=>{
                     const secItems=allItems.filter(i=>(i.section||'Général')===sec)
-                    const modules=[...new Set(secItems.map(i=>i.module||'Général'))].sort()
-                    const isSecOpen=openModule&&openModule.startsWith('sec-'+sec)
+                    const modules=[...new Set(secItems.map(i=>i.module||'Général'))].length
+                    const nbV=secItems.filter(i=>i._type==='video').length
+                    const nbF=secItems.filter(i=>i._type==='fiche').length
+                    const nbQ=secItems.filter(i=>i._type==='quiz').length
                     return (
-                      <div key={sec} style={{marginBottom:9}}>
-                        {/* Section header */}
-                        <div onClick={()=>setOpenModule(isSecOpen?null:'sec-'+sec)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}22`,borderRadius:12,padding:'12px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:11}}>
+                      <div key={sec} onClick={()=>setTActiveSection({name:sec})} className="hov" style={{background:G.card,border:`1px solid ${G.accent}22`,borderRadius:12,padding:16,marginBottom:9,cursor:'pointer'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:12}}>
+                          <div style={{width:42,height:42,borderRadius:11,background:G.accent+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>📚</div>
                           <div style={{flex:1}}>
                             <div className="syne" style={{fontWeight:800,fontSize:14}}>{sec}</div>
-                            <div style={{color:G.muted,fontSize:11,marginTop:3}}>{modules.length} module{modules.length>1?'s':''} · {secItems.length} ressource{secItems.length>1?'s':''}</div>
-                          </div>
-                          <div style={{color:G.muted,fontSize:18,transition:'transform .2s',transform:isSecOpen?'rotate(90deg)':'none'}}>›</div>
-                        </div>
-                        {isSecOpen&&modules.map(mod=>{
-                          const modItems=secItems.filter(i=>(i.module||'Général')===mod)
-                          const nbV=modItems.filter(i=>i._type==='video').length
-                          const nbF=modItems.filter(i=>i._type==='fiche').length
-                          const nbQ=modItems.filter(i=>i._type==='quiz').length
-                          const isOpen=openModule==='mod-'+sec+'-'+mod
-                          return (
-                          <div key={mod} style={{marginLeft:10,marginTop:5}}>
-                            <div onClick={()=>setOpenModule('mod-'+sec+'-'+mod)} className="hov" style={{background:isOpen?G.accent+'22':G.surface,border:`1px solid ${isOpen?G.accent+'44':G.border}`,borderRadius:10,padding:'10px 13px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
-                              <div style={{flex:1}}>
-                                <div className="syne" style={{fontWeight:700,fontSize:13}}>{mod}</div>
-                                <div style={{display:'flex',gap:7,marginTop:3,flexWrap:'wrap'}}>
-                                  {nbV>0&&<span style={{fontSize:10,color:G.accent}}>🎬 {nbV}</span>}
-                                  {nbF>0&&<span style={{fontSize:10,color:G.accentCyan}}>📄 {nbF}</span>}
-                                  {nbQ>0&&<span style={{fontSize:10,color:G.gold}}>🧠 {nbQ}</span>}
-                                </div>
-                              </div>
-                              <div style={{color:G.muted,fontSize:16,transition:'transform .2s',transform:isOpen?'rotate(90deg)':'none'}}>›</div>
+                            <div style={{color:G.muted,fontSize:11,marginTop:3}}>{modules} module{modules>1?'s':''}</div>
+                            <div style={{display:'flex',gap:8,marginTop:4}}>
+                              {nbV>0&&<span style={{fontSize:11,color:G.accent}}>🎬 {nbV} vidéo{nbV>1?'s':''}</span>}
+                              {nbF>0&&<span style={{fontSize:11,color:G.accentCyan}}>📄 {nbF} fiche{nbF>1?'s':''}</span>}
+                              {nbQ>0&&<span style={{fontSize:11,color:G.gold}}>🧠 {nbQ} quiz</span>}
                             </div>
-                            {isOpen&&(
-                              <div style={{marginTop:4,display:'flex',flexDirection:'column',gap:5,paddingLeft:8}}>
-                                {modItems.map(item=>{
-                                  const itemClasses=(item.classIds||[]).map(cid=>classes.find(c=>c.id===cid)).filter(Boolean)
-                                  return (
-                                    <div key={item.id} onClick={item._type!=='quiz'&&item.drive_url?()=>setDrivePreview(item):undefined} className={item._type!=='quiz'&&item.drive_url?'hov':''} style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,padding:'9px 12px',cursor:item._type!=='quiz'&&item.drive_url?'pointer':'default'}}>
-                                      <div style={{display:'flex',alignItems:'center',gap:9}}>
-                                        <div style={{fontSize:16,flexShrink:0}}>{item._icon}</div>
-                                        <div style={{flex:1,minWidth:0}}>
-                                          <div style={{fontSize:12,fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{item.title}</div>
-                                          <div style={{display:'flex',gap:4,marginTop:3,flexWrap:'wrap'}}>
-                                            {itemClasses.map(c=><span key={c.id} style={{background:c.color+'22',color:c.color,border:`1px solid ${c.color}44`,borderRadius:4,padding:'1px 5px',fontSize:9,fontWeight:600}}>{c.name}</span>)}
-                                            {item._type!=='quiz'&&<span style={{fontSize:9,color:item.drive_url?G.accentGreen:G.accentHot}}>{item.drive_url?'✅ Ouvrir':'⚠️ Pas de lien'}</span>}
-                                            {item._type==='quiz'&&<span style={{fontSize:9,color:G.muted}}>{(item.quiz_questions||[]).length} question{(item.quiz_questions||[]).length>1?'s':''}</span>}
-                                          </div>
-                                        </div>
-                                        <div style={{display:'flex',gap:4,flexShrink:0}} onClick={e=>e.stopPropagation()}>
-                                          <button onClick={()=>deleteContent(item._type,item.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:12}}>🗑</button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            )}
                           </div>
-                          )
-                        })}
+                          <div style={{color:G.accent,fontSize:16}}>→</div>
+                        </div>
                       </div>
                     )
                   })
                 })()}
+              </>
+            )}
           </div>
         )}
 
@@ -2012,7 +2055,7 @@ function TeacherApp({onLogout}) {
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null);if(t.id!=='notes') setNotesView(null);if(t.id!=='game') setGameActive(false)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setSelStudent(null);setDrivePreview(null);if(t.id!=='notes') setNotesView(null);if(t.id!=='game') setGameActive(false);if(t.id!=='content'){setTActiveSection(null);setTActiveModule(null);setOpenModule(null)}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accentHot:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&totalUnread>0&&<div style={{position:'absolute',top:0,right:'16%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
