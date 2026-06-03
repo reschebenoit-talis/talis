@@ -1354,29 +1354,91 @@ function flashXP(amount, color) {
   setTimeout(() => el.classList.remove('show'), 1200);
 }
 
-// ══════════════════════════════════════════
-//  CLAUDE API
-// ══════════════════════════════════════════
-async function callClaude(messages) {
-  const resp = await fetch('/api/claude', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({
-      model:'claude-sonnet-4-20250514',
-      max_tokens:1000,
-      system:`Tu es le moteur pédagogique du jeu RECRU-QUEST, un jeu d'aventure éducatif pour étudiants BTS MCO sur le module MEC (Management de l'Équipe Commerciale), compétence "Participer au recrutement".
 
-Contenu du cours pour la phase actuelle (Phase ${S.phase}):
-${KNOWLEDGE[S.phase-1]}
+// ══════════════════════════════════════════
+//  BANQUE DE QUESTIONS PRÉ-GÉNÉRÉES (sans IA)
+// ══════════════════════════════════════════
+const QUESTION_BANK = {
+  1: [
+    {type:'QCM',enonce:"Chez Sport Avenue, le directeur constate que le CA du rayon running a augmenté de 30% et que ses 3 vendeurs sont surchargés. Quelle est la première étape du diagnostic RH ?",options:["Publier immédiatement une annonce d'emploi","Analyser la charge de travail actuelle et calculer le nombre d'agents nécessaires","Augmenter les heures supplémentaires de l'équipe existante","Externaliser le rayon à un prestataire"],bonne_reponse:1,explication:"Le diagnostic RH commence toujours par l'analyse de l'activité et le calcul du besoin réel avant toute action de recrutement.",xp:15,difficulte:"Facile"},
+    {type:'QCM',enonce:"Chez Cultura, la formule utilisée pour calculer le nombre d'agents nécessaires est : Charge totale ÷ Productivité par agent. Si la charge est de 2400h/an et la productivité de 1600h/agent, combien faut-il de postes ?",options:["1 poste","2 postes","1,5 poste — arrondi à 2","3 postes"],bonne_reponse:2,explication:"2400 ÷ 1600 = 1,5 → on arrondit à 2 postes pour couvrir le besoin réel sans sous-effectif.",xp:20,difficulte:"Moyen"},
+    {type:'vrai_faux',enonce:"Un sureffectif dans une équipe commerciale est sans conséquence financière pour l'entreprise, car les vendeurs génèrent toujours du chiffre d'affaires.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : un sureffectif engendre des coûts inutiles (masse salariale) et peut nuire à la motivation de l'équipe.",xp:10,difficulte:"Facile"},
+    {type:'QCM',enonce:"Décathlon confie le recrutement directement aux managers de rayon. Quel est l'avantage principal de cette approche ?",options:["Réduire le nombre de candidatures reçues","Permettre aux managers de recruter selon les besoins locaux réels","Centraliser toutes les décisions au siège","Éviter tout processus de sélection"],bonne_reponse:1,explication:"La décentralisation permet aux managers de terrain d'adapter le recrutement aux besoins spécifiques de leur rayon et de leur zone de chalandise.",xp:15,difficulte:"Moyen"},
+    {type:'vrai_faux',enonce:"La fiche de poste doit inclure uniquement les compétences techniques (savoir-faire), les compétences comportementales n'étant pas évaluables lors d'un recrutement.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : le profil-personae inclut obligatoirement savoir-faire, savoir-être ET motivations pour identifier le candidat idéal.",xp:10,difficulte:"Facile"},
+    {type:'QCM',enonce:"Une enseigne de prêt-à-porter prépare une annonce pour recruter un conseiller de vente. Parmi ces objectifs, lequel N'est PAS un objectif d'une annonce efficace ?",options:["Attirer des candidatures qualifiées","Garantir l'embauche du premier candidat qui postule","Filtrer les profils inadaptés dès la lecture","Refléter une image fidèle du poste"],bonne_reponse:1,explication:"Une annonce ne garantit pas l'embauche — elle vise à attirer, filtrer, refléter et optimiser le processus, pas à sélectionner automatiquement.",xp:15,difficulte:"Moyen"},
+    {type:'classement',enonce:"Remettez dans l'ordre les 4 piliers de la préparation au recrutement selon le référentiel BTS MCO :",options:["Cadre légal (droit du travail, non-discrimination)","Définition précise du besoin (savoir qui on cherche)","Efficience (process clair pour attirer rapidement)","Cohérence stratégique (alignement stratégie globale)"],bonne_reponse:1,explication:"L'ordre logique : 1. Définir le besoin, 2. Aligner avec la stratégie, 3. Respecter le cadre légal, 4. Optimiser le process.",xp:20,difficulte:"Expert"},
+    {type:'cas_pratique',enonce:"Le responsable du rayon électroménager de Boulanger doit recruter 2 vendeurs pour faire face aux soldes d'été. Rédigez les 3 éléments clés de la fiche de poste à préparer.",bonne_reponse:0,explication:"Une fiche de poste complète inclut : missions et responsabilités concrètes, compétences techniques requises (connaissance produits, techniques de vente), et compétences comportementales (sens du service, dynamisme, esprit d'équipe).",xp:20,difficulte:"Expert",description_action:"Rédigez les 3 éléments clés : missions, compétences techniques, compétences comportementales",mots_cles:["mission","compétence","vente","service","technique","produit"]},
+    {type:'QCM',enonce:"Parmi ces canaux de diffusion d'une offre d'emploi, lequel est qualifié de 'cooptation' ?",options:["Publication sur un jobboard comme Indeed","Recommandation d'un candidat par un employé de l'entreprise","Affichage en vitrine du magasin","Dépôt de l'offre à Pôle Emploi"],bonne_reponse:1,explication:"La cooptation consiste à recruter via les recommandations des salariés actuels — méthode souvent efficace et peu coûteuse.",xp:15,difficulte:"Facile"}
+  ],
+  2: [
+    {type:'QCM',enonce:"Chez Jules, le responsable reçoit 80 CV pour 2 postes de vendeurs polyvalents. Quelle est la méthode de tri recommandée en première étape ?",options:["Analyser chaque CV en détail dès le début","Lecture rapide pour éliminer les CV hors profil évidents","Convoquer tous les candidats pour un entretien","Classer les CV par ordre alphabétique"],bonne_reponse:1,explication:"La lecture rapide permet d'éliminer les CV clairement hors profil avant l'analyse détaillée des candidats présélectionnés.",xp:15,difficulte:"Facile"},
+    {type:'vrai_faux',enonce:"Lors du tri des CV, il est légalement autorisé de rejeter une candidature en raison de l'âge du candidat si le poste requiert une certaine 'jeunesse d'esprit'.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : toute discrimination basée sur l'âge, le sexe, l'origine, le handicap ou les convictions est illégale dans le processus de recrutement.",xp:15,difficulte:"Moyen"},
+    {type:'QCM',enonce:"Pour un poste de responsable caisse chez Carrefour, quelle combinaison de critères de sélection est la plus pertinente ?",options:["Âge et lieu de résidence","Formation en gestion, expérience en caisse et rigueur","Apparence physique et aisance relationnelle uniquement","Disponibilité le week-end uniquement"],bonne_reponse:1,explication:"Les critères objectifs et liés au poste sont : la formation pertinente, l'expérience en caisse et les qualités comportementales nécessaires (rigueur).",xp:15,difficulte:"Moyen"},
+    {type:'classement',enonce:"Remettez dans l'ordre les 3 étapes de la méthode de tri des CV :",options:["Analyse détaillée des CV retenus","Grille de sélection pondérée (notation par critère)","Lecture rapide (élimination des CV hors profil évidents)"],bonne_reponse:2,explication:"L'ordre logique : 1. Lecture rapide, 2. Analyse détaillée, 3. Grille de sélection pondérée — du plus général au plus précis.",xp:20,difficulte:"Moyen"},
+    {type:'QCM',enonce:"Burger King organise un recrutement collectif pour 15 postes. Parmi ces ressources, laquelle est indispensable à préparer en amont ?",options:["Un budget publicitaire important","Des fiches d'évaluation standardisées et une salle réservée","Des cadeaux pour les candidats","Un logiciel de reconnaissance faciale"],bonne_reponse:1,explication:"L'organisation matérielle (salle, fiches d'évaluation standardisées, formation des managers) est essentielle pour un recrutement collectif efficace.",xp:15,difficulte:"Facile"},
+    {type:'vrai_faux',enonce:"Une grille de sélection pondérée permet d'évaluer les CV de manière subjective en se basant sur l'intuition du recruteur.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : la grille de sélection pondérée vise précisément à objectiver le tri en attribuant un score à chaque critère prédéfini.",xp:10,difficulte:"Facile"},
+    {type:'cas_pratique',enonce:"Une responsable RH d'Intersport reçoit 60 candidatures pour un poste de conseiller sport. Elle doit créer une grille de sélection. Citez 4 critères pertinents et expliquez pourquoi chacun est important.",bonne_reponse:0,explication:"Critères pertinents : formation (adéquation au poste), expérience en vente (performance opérationnelle), connaissance des produits sportifs (crédibilité client), disponibilités (contraintes du poste).",xp:20,difficulte:"Expert",description_action:"Citez 4 critères de sélection et justifiez chacun en lien avec le poste de conseiller sport",mots_cles:["formation","expérience","compétence","disponibilité","critère","sport","vente"]},
+    {type:'QCM',enonce:"Après avoir retenu 8 candidats sur 60 CV, la responsable RH doit les contacter. Quelle est la bonne pratique de communication ?",options:["Ne contacter que les candidats retenus, ignorer les autres","Envoyer une convocation claire aux retenus et un feedback aux non-retenus dans des délais respectés","Attendre que les candidats rappellent d'eux-mêmes","Publier la liste des retenus sur les réseaux sociaux"],bonne_reponse:1,explication:"La communication respectueuse inclut la convocation des retenus ET un retour aux non-sélectionnés — c'est une obligation éthique et un enjeu d'image employeur.",xp:15,difficulte:"Moyen"}
+  ],
+  3: [
+    {type:'QCM',enonce:"Dans un magasin d'équipement maison, le manager accueille un candidat. Il dit : 'L'entretien va durer environ 30 minutes. Nous allons revenir sur votre parcours, puis sur le poste, et terminer par vos questions.' Quel est l'objectif de cette phrase ?",options:["Intimider le candidat pour tester sa résistance au stress","Rassurer le candidat et structurer l'échange dès le début","Gagner du temps en résumant l'entretien","Vérifier que le candidat a lu la fiche de poste"],bonne_reponse:1,explication:"L'annonce du cadre en début d'entretien rassure le candidat, lui permet de se préparer et donne une structure professionnelle à l'échange.",xp:15,difficulte:"Facile"},
+    {type:'QCM',enonce:"Un manager de Fnac demande : 'Décrivez une situation difficile avec un client et comment vous l'avez gérée.' De quel type de question s'agit-il ?",options:["Question fermée","Question ouverte","Question comportementale","Question discriminatoire"],bonne_reponse:2,explication:"La question comportementale est basée sur des situations vécues — elle permet d'évaluer les compétences réelles plutôt que les réponses théoriques.",xp:15,difficulte:"Moyen"},
+    {type:'vrai_faux',enonce:"L'effet de halo est un biais cognitif qui consiste à laisser une première impression positive influencer l'évaluation globale du candidat, même sur des critères non liés.",options:["Vrai","Faux"],bonne_reponse:0,explication:"Vrai : l'effet de halo est bien un biais cognitif majeur en entretien — il faut utiliser une grille de critères pour objectiver l'évaluation.",xp:15,difficulte:"Moyen"},
+    {type:'QCM',enonce:"À quelle étape de l'entretien doit-on relire le CV du candidat et préparer la grille d'évaluation ?",options:["Pendant l'entretien, en temps réel","Après l'entretien, pour ne pas être influencé","Avant l'entretien, en phase de préparation","Ce n'est pas nécessaire si le recruteur est expérimenté"],bonne_reponse:2,explication:"La préparation avant l'entretien (relecture du CV, préparation de la grille) est indispensable pour conduire un entretien structuré et objectif.",xp:15,difficulte:"Facile"},
+    {type:'classement',enonce:"Remettez dans l'ordre les 3 phases d'un entretien d'embauche professionnel :",options:["Clôture (prochaines étapes, date de réponse, remerciements)","Accueil (présentation, cadre de l'entretien)","Phase de découverte (parcours, motivations, expériences)"],bonne_reponse:1,explication:"L'ordre est : 1. Accueil et cadrage, 2. Découverte du candidat, 3. Clôture avec les prochaines étapes — structure standard d'un entretien professionnel.",xp:20,difficulte:"Moyen"},
+    {type:'vrai_faux',enonce:"Une question fermée comme 'Êtes-vous disponible le week-end ?' est inappropriée en entretien car elle ne permet pas au candidat de s'exprimer librement.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : les questions fermées sont utiles et légitimes pour vérifier des points précis (disponibilités, permis, formation). L'entretien doit combiner questions ouvertes et fermées.",xp:10,difficulte:"Facile"},
+    {type:'cas_pratique',enonce:"Vous êtes manager chez H&M et vous conduisez un entretien pour un poste de vendeur. Rédigez 3 questions que vous poseriez au candidat en précisant le type de chaque question.",bonne_reponse:0,explication:"Un bon entretien combine : 1 question ouverte (ex: 'Parlez-moi de votre expérience en vente'), 1 question comportementale (ex: 'Décrivez une situation client difficile'), 1 question fermée (ex: 'Êtes-vous disponible le week-end ?').",xp:20,difficulte:"Expert",description_action:"Rédigez 3 questions avec leur type : une ouverte, une comportementale, une fermée",mots_cles:["ouverte","fermée","comportementale","expérience","situation","disponible"]},
+    {type:'QCM',enonce:"En fin d'entretien, le manager dit : 'Nous vous donnerons une réponse d'ici le 15 du mois.' Quelle est l'importance de cette étape ?",options:["C'est une simple formalité sans conséquence","Cela engage l'entreprise légalement à recruter le candidat","Cela respecte le candidat et maintient une image employeur positive","Cela permet d'éviter toute relance du candidat"],bonne_reponse:2,explication:"La clôture avec une date de réponse précise est une marque de professionnalisme qui préserve l'image employeur et respecte l'investissement du candidat.",xp:15,difficulte:"Moyen"}
+  ],
+  4: [
+    {type:'QCM',enonce:"Selon les données du référentiel MCO, quel est le coût estimé d'une démission dans les 3 premiers mois suivant l'embauche ?",options:["500 à 1 000 €","3 000 à 8 000 €","15 000 à 30 000 €","Le coût est nul si la période d'essai n'est pas terminée"],bonne_reponse:1,explication:"Une démission précoce coûte entre 3 000 et 8 000 € (formation, perte de performance, nouveau recrutement) — d'où l'importance cruciale de l'intégration.",xp:15,difficulte:"Moyen"},
+    {type:'vrai_faux',enonce:"Le pré-boarding désigne l'ensemble des actions menées après l'arrivée du nouveau collaborateur pour l'accueillir dans l'équipe.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : le pré-boarding se déroule AVANT l'arrivée du collaborateur (préparer le poste, informer l'équipe, désigner un tuteur, prévoir le planning de formation).",xp:15,difficulte:"Moyen"},
+    {type:'QCM',enonce:"Chez Décathlon, le manager dit à l'équipe : 'Voici Yassine, il rejoint le rayon running. Il a une expérience en vente textile.' Quel est l'objectif de cette présentation ?",options:["Comparer Yassine aux autres membres de l'équipe","Rassurer Yassine, donner du sens à son intégration et créer un sentiment d'appartenance","Informer les clients de l'arrivée d'un nouveau vendeur","Vérifier les compétences de Yassine devant l'équipe"],bonne_reponse:1,explication:"La présentation à l'équipe vise à faciliter l'intégration sociale, rassurer le nouvel arrivant et créer un sentiment d'appartenance dès le premier jour.",xp:15,difficulte:"Facile"},
+    {type:'classement',enonce:"Remettez dans l'ordre chronologique les 3 étapes du processus d'intégration :",options:["Suivi et montée en compétences (plan de formation, points réguliers)","Accueil le Jour J (présentation entreprise, équipe)","Pré-boarding (préparer poste, informer équipe, désigner tuteur)"],bonne_reponse:2,explication:"L'ordre est : 1. Pré-boarding (avant l'arrivée), 2. Accueil le Jour J, 3. Suivi et montée en compétences (après l'arrivée).",xp:20,difficulte:"Moyen"},
+    {type:'QCM',enonce:"Parmi ces indicateurs, lequel permet de mesurer le succès de l'intégration d'un nouveau collaborateur ?",options:["Le nombre de candidatures reçues lors du recrutement","Le taux de rétention à 6 mois et le score de satisfaction du collaborateur","Le chiffre d'affaires réalisé le premier jour","Le nombre d'heures de formation prévues initialement"],bonne_reponse:1,explication:"Le taux de rétention à 6 mois et la satisfaction du collaborateur sont les indicateurs clés — ils reflètent l'efficacité réelle du processus d'intégration.",xp:15,difficulte:"Moyen"},
+    {type:'vrai_faux',enonce:"Un plan de formation progressif est inutile si le nouveau collaborateur a déjà de l'expérience dans le secteur.",options:["Vrai","Faux"],bonne_reponse:1,explication:"Faux : même un collaborateur expérimenté doit suivre un plan de formation sur les produits, process et outils spécifiques à l'entreprise.",xp:10,difficulte:"Facile"},
+    {type:'cas_pratique',enonce:"Karim, nouveau responsable RH chez Fnac, doit intégrer 3 vendeurs recrutés pour le rayon jeux vidéo. Proposez un plan d'intégration sur 4 semaines.",bonne_reponse:0,explication:"Un plan d'intégration efficace : Semaine 1 (pré-boarding + accueil + présentation équipe), Semaine 2 (formation produits et outils), Semaine 3 (accompagnement tuteur en situation réelle), Semaine 4 (autonomie progressive + premier bilan).",xp:20,difficulte:"Expert",description_action:"Proposez un plan semaine par semaine avec les actions clés pour chaque étape",mots_cles:["accueil","formation","tuteur","suivi","semaine","intégration","autonomie"]},
+    {type:'QCM',enonce:"Quel est le rôle du tuteur/parrain dans le processus d'intégration ?",options:["Évaluer le collaborateur pour décider de la fin de la période d'essai","Accompagner le nouveau collaborateur au quotidien dans sa montée en compétences","Remplacer le manager pendant les premières semaines","Gérer les aspects administratifs du contrat de travail"],bonne_reponse:1,explication:"Le tuteur/parrain est un soutien opérationnel au quotidien — il facilite l'apprentissage pratique et l'intégration dans l'équipe, sans rôle hiérarchique.",xp:15,difficulte:"Facile"}
+  ]
+};
 
-RÈGLE ABSOLUE: Réponds UNIQUEMENT avec du JSON valide, sans markdown, sans backticks, sans texte avant ou après.`,
-      messages
-    })
-  });
-  const data = await resp.json();
-  const txt = data.content.map(c=>c.text||'').join('');
-  return JSON.parse(txt.replace(/```json|```/g,'').trim());
+// Index pour suivre quelles questions ont été posées
+const USED_QUESTIONS = {1:[], 2:[], 3:[], 4:[]};
+
+function getRandomChallenge(phase) {
+  const bank = QUESTION_BANK[phase] || QUESTION_BANK[1];
+  const used = USED_QUESTIONS[phase];
+  // Reset si toutes les questions ont été posées
+  if (used.length >= bank.length) USED_QUESTIONS[phase] = [];
+  // Filtrer les questions pas encore posées
+  const available = bank.map((q,i)=>i).filter(i=>!USED_QUESTIONS[phase].includes(i));
+  const idx = available[Math.floor(Math.random()*available.length)];
+  USED_QUESTIONS[phase].push(idx);
+  return {...bank[idx]};
 }
+
+// Évaluateur local pour les questions rédaction (sans IA)
+function evaluateLocalFree(input, ch) {
+  const inputLower = input.toLowerCase();
+  const keywords = ch.mots_cles || [];
+  const found = keywords.filter(k => inputLower.includes(k.toLowerCase()));
+  const score = Math.round((found.length / Math.max(keywords.length, 1)) * 100);
+  const xp = Math.round((score / 100) * 20);
+  S.xp += xp; S.score += xp * 2;
+  if(score < 40) S.hp = Math.max(0, S.hp - 1);
+  updateHUD();
+  if(xp > 0) flashXP(xp, score >= 60 ? '#00ff88' : '#ffb800');
+  const mention = score >= 80 ? 'Excellent' : score >= 60 ? 'Bien' : score >= 40 ? 'Passable' : 'Insuffisant';
+  const body = mention + ' — ' + score + '/100\n\n' + ch.explication + '\n\nMots-clés identifiés : ' + found.join(', ');
+  showModal({
+    title: mention,
+    body,
+    color: score >= 70 ? '#00ff88' : score >= 45 ? '#ffb800' : '#ff4466',
+    badge: '+' + xp + ' XP · Score ' + score + '/100',
+    callback: nextChallenge
+  });
+}
+
 
 // ══════════════════════════════════════════
 //  CHALLENGE ENGINE
@@ -1391,36 +1453,21 @@ const TYPE_ICONS = {
   QCM:'⬡', vrai_faux:'◈', cas_pratique:'◉', classement:'⟦⟧', redaction:'✦'
 };
 
-async function generateChallenge() {
+function generateChallenge() {
   const p = PHASES[S.phase-1];
-  const type = TYPES[Math.floor(Math.random()*TYPES.length)];
-  showLoading(`${p.npc} prépare votre défi...`);
-
-  const prompt = `Génère un défi pédagogique de type "${type}" sur la Phase ${S.phase} du recrutement BTS MCO.
-Réponds avec ce JSON exact (sans markdown):
-{
-  "type": "${type}",
-  "enonce": "Question ou situation (2-3 phrases max, contexte réaliste avec une enseigne)",
-  "options": ["option A","option B","option C","option D"],
-  "bonne_reponse": 0,
-  "explication": "Explication pédagogique (1 phrase précise)",
-  "xp": 15,
-  "difficulte": "Facile|Moyen|Expert",
-  "description_action": "Pour redaction/cas_pratique uniquement: consigne précise"
-}
-Pour vrai_faux: 2 options seulement ["Vrai","Faux"].
-Pour redaction/cas_pratique: omettre "options", inclure "description_action".
-Pour classement: 4 étapes à remettre dans l'ordre, bonne_reponse = index 0.`;
-
-  try {
-    const ch = await callClaude([{role:'user',content:prompt}]);
-    displayChallenge(ch);
-  } catch(e) {
-    setContent({
-      speaker:'SYSTÈME', color:'#ff4466', text:'Erreur de connexion au module IA. Veuillez réessayer.',
-      options:[{label:'Réessayer', fn:generateChallenge}]
-    });
-  }
+  showLoading(`${p.npc} analyse votre dossier...`);
+  setTimeout(() => {
+    try {
+      const ch = getRandomChallenge(S.phase);
+      displayChallenge(ch);
+    } catch(e) {
+      setContent({
+        speaker:'SYSTÈME', color:'#ff4466',
+        text:'Erreur de chargement du défi. Rechargez la page.',
+        options:[{label:'Réessayer', fn:generateChallenge}]
+      });
+    }
+  }, 600);
 }
 
 function displayChallenge(ch) {
@@ -1497,30 +1544,10 @@ function checkAnswer(idx, btn, ch) {
   }
 }
 
-async function evaluateFree(input, ch) {
+function evaluateFree(input, ch) {
   if(!input.trim()) return;
-  showLoading('Évaluation de votre réponse en cours...');
-  const prompt = `Évalue cette réponse d'étudiant BTS MCO:
-Défi: ${ch.enonce}
-Réponse: "${input}"
-JSON requis:
-{"score":0,"mention":"Excellent|Bien|Passable|Insuffisant","feedback":"1 phrase","points_positifs":"Ce qui est bien","a_ameliorer":"Ce qui manque","xp_attribue":0}
-score de 0 à 100, xp_attribue de 0 à 20.`;
-  try {
-    const ev = await callClaude([{role:'user',content:prompt}]);
-    const xp = ev.xp_attribue||0;
-    S.xp+=xp; S.score+=xp*2;
-    if(ev.score<40) S.hp=Math.max(0,S.hp-1);
-    updateHUD();
-    if(xp>0) flashXP(xp, ev.score>=60?'#00ff88':'#ffb800');
-    const body = `${ev.mention} — ${ev.score}/100\n\n✓ ${ev.points_positifs}\n◈ ${ev.a_ameliorer}\n\n${ev.feedback}`;
-    showModal({
-      title:ev.mention, body, color:ev.score>=70?'#00ff88':ev.score>=45?'#ffb800':'#ff4466',
-      badge:`+${xp} XP · Score ${ev.score}/100`, callback:nextChallenge
-    });
-  } catch(e) {
-    showModal({title:'Réponse enregistrée',body:'Continuez votre progression !',color:'#00f5ff',callback:nextChallenge});
-  }
+  showLoading('Analyse de votre réponse...');
+  setTimeout(() => evaluateLocalFree(input, ch), 500);
 }
 
 // ══════════════════════════════════════════
@@ -1605,21 +1632,20 @@ function victoire() {
   });
 }
 
-async function showBilan() {
-  showLoading('Génération de votre bilan pédagogique personnalisé...');
-  const prompt = `L'étudiant a terminé le jeu BTS MCO recrutement. Score: ${S.score}. XP: ${S.xp}. HP restants: ${S.hp}/10.
-Génère un bilan JSON:
-{"titre":"Titre motivant","points_forts":["PF1","PF2"],"a_consolider":["Point 1"],"conseil_examen":"Conseil en 1 phrase pour l'épreuve BTS MCO","profil":"Manager Confirmé|Manager en développement|Futur Expert RH|Stratège Commercial","note_estimee":"XX/20"}`;
-  try {
-    const bilan = await callClaude([{role:'user',content:prompt}]);
-    setContent({
-      speaker:'BILAN PÉDAGOGIQUE', color:'#00f5ff',
-      text:`${bilan.titre}\n\nProfil : ${bilan.profil}\nNote estimée : ${bilan.note_estimee}/20\n\n✓ ${bilan.points_forts.join(' · ')}\n◈ À consolider : ${bilan.a_consolider.join(', ')}\n\n💡 ${bilan.conseil_examen}`,
-      options:[{label:'Rejouer l\'aventure', fn:initGame}]
-    });
-  } catch(e) {
-    setContent({speaker:'BILAN',color:'#00f5ff',text:`Score: ${S.score} | XP: ${S.xp}/100\nBravo pour votre parcours !`,options:[{label:'Rejouer',fn:initGame}]});
-  }
+function showBilan() {
+  const profil = S.score >= 180 ? 'Manager Confirmé' : S.score >= 120 ? 'Manager en Développement' : S.score >= 60 ? 'Futur Expert RH' : 'Stratège Commercial en Formation';
+  const note = Math.min(20, Math.round(10 + (S.xp / 100) * 10));
+  const pts_forts = [];
+  const a_consolider = [];
+  if(S.hp >= 8) pts_forts.push('Excellente maîtrise du cours'); else a_consolider.push('Revoir les notions fondamentales');
+  if(S.score >= 150) pts_forts.push('Très bon score global'); else a_consolider.push('Approfondir les cas pratiques');
+  if(S.xp >= 60) pts_forts.push('Bonne progression sur les 4 phases');
+  setContent({
+    speaker:'BILAN PÉDAGOGIQUE', color:'#00f5ff',
+    text:'Bilan final — Module MEC\n\nProfil : ' + profil + '\nNote estimée : ' + note + '/20\nScore : ' + S.score + ' | XP : ' + S.xp + '\n\n✓ ' + (pts_forts.join(' · ') || 'Continuez vos efforts') + '\n◈ À consolider : ' + (a_consolider.join(', ') || 'Rien — excellent travail !') + '\n\n💡 Conseil BTS : Entraînez-vous sur les cas pratiques de recrutement avec des exemples d\'enseignes réelles.',
+    options:[{label:'Rejouer l\'aventure', fn:initGame}]
+  });
+}
 }
 
 // ══════════════════════════════════════════
