@@ -876,8 +876,8 @@ const INTROS = [
 // ----------------------------------------
 //  CANVAS — WORLD RENDERER
 // ----------------------------------------
-const wCanvas = document.getElementById('world-canvas');
-const wCtx = wCanvas.getContext('2d');
+// Canvas initialized in window load event below
+let wCanvas, wCtx, npcCanvas, npcCtx;
 
 function resizeWorldCanvas() {
   const el = document.getElementById('world-view');
@@ -1127,8 +1127,7 @@ function drawPixelNPC(ctx, x, y, col, t) {
 }
 
 // NPC PORTRAIT
-const npcCanvas = document.getElementById('npc-canvas');
-const npcCtx = npcCanvas.getContext('2d');
+// npcCanvas initialized in window load event below
 
 function drawNPCPortrait() {
   const W=npcCanvas.width, H=npcCanvas.height;
@@ -1669,6 +1668,11 @@ function loop() {
 //  BOOT
 // ----------------------------------------
 window.addEventListener('load', () => {
+  // Initialize canvases after DOM is ready
+  wCanvas = document.getElementById('world-canvas');
+  wCtx = wCanvas.getContext('2d');
+  npcCanvas = document.getElementById('npc-canvas');
+  npcCtx = npcCanvas.getContext('2d');
   resizeWorldCanvas();
   window.addEventListener('resize', resizeWorldCanvas);
   initGame();
