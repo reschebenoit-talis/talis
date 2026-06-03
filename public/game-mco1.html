@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RECRU-QUEST | BTS MCO — Module MEC</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cyan:   #00f5ff;
+  --magenta:#ff00aa;
+  --amber:  #ffb800;
+  --green:  #00ff88;
+  --dark:   #050810;
+  --dark2:  #080d1a;
+  --dark3:  #0d1428;
+  --grid:   rgba(0,245,255,0.04);
+  --mono: 'Share Tech Mono', monospace;
+  --display: 'Orbitron', sans-serif;
+  --vt: 'VT323', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--dark);
+  min-height: 100vh;
+  font-family: var(--mono);
+  overflow-x: hidden;
+  cursor: crosshair;
+}
+
+/* ─── SCANLINES OVERLAY ─── */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+  pointer-events:none; z-index:9999;
+}
+
+/* ─── GRID BG ─── */
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events:none; z-index:0;
+}
+
+/* ═══════════════════════════════════════
+   GAME WRAPPER
+═══════════════════════════════════════ */
+#app {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+  min-height: 100vh;
+  z-index: 1;
+  padding: 0 0 40px;
+}
+
+/* ─── HEADER ─── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(0,245,255,0.2);
+  position: relative;
+}
+
+#header::after {
+  content:'';
+  position:absolute; bottom:-1px; left:0; right:0; height:1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  animation: scanH 4s linear infinite;
+}
+
+@keyframes scanH {
+  0%{background-position:-900px 0} 100%{background-position:900px 0}
+}
+
+.logo {
+  font-family: var(--display);
+  font-weight: 900;
+  font-size: 22px;
+  color: var(--cyan);
+  letter-spacing: 3px;
+  text-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0,245,255,0.3);
+  position: relative;
+}
+
+.logo span { color: var(--magenta); }
+
+.logo::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 2px; top: 2px;
+  color: var(--magenta);
+  opacity: 0.3;
+  clip-path: inset(30% 0 50% 0);
+  animation: glitch1 3s infinite;
+}
+
+@keyframes glitch1 {
+  0%,94%{clip-path:inset(30% 0 50% 0);transform:translate(0)}
+  95%{clip-path:inset(10% 0 70% 0);transform:translate(-3px,1px)}
+  97%{clip-path:inset(60% 0 10% 0);transform:translate(3px,-1px)}
+  100%{clip-path:inset(30% 0 50% 0);transform:translate(0)}
+}
+
+.header-right {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+/* ─── HUD STATS ─── */
+.stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0,245,255,0.04);
+  border: 1px solid rgba(0,245,255,0.15);
+  padding: 5px 12px;
+  border-radius: 2px;
+  font-size: 13px;
+  position: relative;
+}
+
+.stat-chip .label { color: rgba(0,245,255,0.5); font-size: 10px; text-transform:uppercase; letter-spacing:2px; }
+.stat-chip .value { color: var(--cyan); font-family: var(--display); font-weight: 700; font-size: 15px; }
+
+.hp-value { color: #ff4466 !important; }
+.xp-value { color: var(--amber) !important; }
+.score-value { color: var(--green) !important; }
+
+/* ─── MINI PROGRESS BAR ─── */
+.mini-bar {
+  width: 60px; height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mini-bar-fill { height: 100%; border-radius: 2px; transition: width 0.5s cubic-bezier(.4,0,.2,1); }
+.bar-hp { background: linear-gradient(90deg,#ff2244,#ff6688); box-shadow:0 0 8px #ff2244; }
+.bar-xp { background: linear-gradient(90deg,var(--amber),#ffe066); box-shadow:0 0 8px var(--amber); }
+
+/* ═══════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════ */
+#main {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0;
+  min-height: calc(100vh - 70px);
+}
+
+/* ─── SIDEBAR ─── */
+#sidebar {
+  border-right: 1px solid rgba(0,245,255,0.1);
+  padding: 24px 0;
+  position: relative;
+}
+
+.sidebar-section {
+  padding: 0 20px;
+  margin-bottom: 28px;
+}
+
+.sidebar-label {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(0,245,255,0.4);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-label::after {
+  content:'';
+  flex: 1;
+  height: 1px;
+  background: rgba(0,245,255,0.1);
+}
+
+/* PHASE MAP */
+.phase-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  cursor: default;
+  transition: all 0.3s;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.phase-node.locked { opacity: 0.25; }
+.phase-node.active {
+  background: rgba(0,245,255,0.06);
+  border-color: rgba(0,245,255,0.2);
+}
+.phase-node.done {
+  opacity: 0.7;
+  border-color: rgba(0,255,136,0.15);
+}
+
+.phase-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.15);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.phase-node.active .phase-dot {
+  border-color: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan), 0 0 16px rgba(0,245,255,0.3);
+  animation: pulse 2s infinite;
+}
+
+.phase-node.done .phase-dot {
+  background: var(--green);
+  border-color: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+@keyframes pulse {
+  0%,100%{ box-shadow:0 0 6px var(--cyan); }
+  50%{ box-shadow:0 0 14px var(--cyan), 0 0 28px rgba(0,245,255,0.4); }
+}
+
+.phase-info {}
+.phase-num { font-size: 9px; color: rgba(255,255,255,0.3); letter-spacing:1px; }
+.phase-name { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.3; }
+.phase-node.active .phase-name { color: var(--cyan); }
+.phase-node.done .phase-name { color: var(--green); }
+
+.phase-connector {
+  width: 1px; height: 8px;
+  background: linear-gradient(var(--cyan), transparent);
+  margin: 0 0 0 26px;
+  opacity: 0.3;
+}
+
+/* CHALLENGES LEFT */
+.challenges-meter {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ch-pip {
+  width: 20px; height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 1px;
+  transition: all 0.3s;
+}
+.ch-pip.done { background: var(--green); box-shadow: 0 0 4px var(--green); }
+.ch-pip.active { background: var(--amber); box-shadow: 0 0 4px var(--amber); animation: pipPulse 1s infinite; }
+@keyframes pipPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* NPC PORTRAIT SIDEBAR */
+#npc-portrait-container {
+  padding: 0 20px;
+  margin-bottom: 20px;
+}
+
+#npc-canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(0,245,255,0.2);
+  border-radius: 4px;
+  image-rendering: pixelated;
+  display: block;
+  background: var(--dark2);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 20px rgba(0,245,255,0.05);
+}
+
+.npc-nameplate {
+  text-align: center;
+  margin-top: 8px;
+  font-family: var(--display);
+  font-size: 9px;
+  color: var(--cyan);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.npc-role {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  margin-top: 2px;
+}
+
+/* ─── MAIN CONTENT ─── */
+#content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── WORLD VIEW ─── */
+#world-view {
+  position: relative;
+  height: 260px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(0,245,255,0.1);
+}
+
+#world-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* ROOM LABEL */
+.room-label {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: rgba(0,245,255,0.6);
+  text-transform: uppercase;
+}
+
+.room-label .room-icon { margin-right: 6px; }
+
+/* FLOATING PARTICLES — done in canvas */
+
+/* ─── DIALOGUE AREA ─── */
+#dialogue-area {
+  flex: 1;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+/* Speaker line */
+.speaker-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.speaker-name {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.speaker-line::before {
+  content: '▶';
+  font-size: 8px;
+  color: var(--cyan);
+  animation: arrowBlink 1s infinite;
+}
+
+@keyframes arrowBlink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* Text box */
+.dialogue-box {
+  background: rgba(8,13,26,0.8);
+  border: 1px solid rgba(0,245,255,0.12);
+  border-left: 3px solid var(--cyan);
+  padding: 16px 20px;
+  border-radius: 0 4px 4px 0;
+  position: relative;
+  font-family: var(--vt);
+  font-size: 20px;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.5;
+  min-height: 70px;
+}
+
+.dialogue-box::before {
+  content:'';
+  position:absolute;
+  inset:0;
+  background: linear-gradient(135deg, rgba(0,245,255,0.02), transparent 60%);
+  pointer-events:none;
+}
+
+/* ─── OPTIONS GRID ─── */
+#options-area {
+  display: grid;
+  gap: 8px;
+}
+
+.opt-btn {
+  background: rgba(0,245,255,0.02);
+  border: 1px solid rgba(0,245,255,0.12);
+  color: rgba(255,255,255,0.75);
+  padding: 12px 18px;
+  font-family: var(--vt);
+  font-size: 19px;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 2px;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.opt-letter {
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cyan);
+  width: 20px;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+
+.opt-btn::before {
+  content:'';
+  position:absolute;
+  left:-100%; top:0; bottom:0;
+  width:100%;
+  background: linear-gradient(90deg, transparent, rgba(0,245,255,0.04), transparent);
+  transition: left 0.4s;
+}
+
+.opt-btn:hover {
+  border-color: rgba(0,245,255,0.4);
+  color: #fff;
+  transform: translateX(4px);
+  box-shadow: inset 0 0 20px rgba(0,245,255,0.03), 0 0 10px rgba(0,245,255,0.05);
+}
+
+.opt-btn:hover::before { left: 100%; }
+
+.opt-btn:hover .opt-letter { text-shadow: 0 0 8px var(--cyan); }
+
+.opt-btn.correct {
+  border-color: var(--green) !important;
+  background: rgba(0,255,136,0.06) !important;
+  color: var(--green) !important;
+  box-shadow: 0 0 12px rgba(0,255,136,0.1) !important;
+}
+.opt-btn.correct .opt-letter { color: var(--green); }
+
+.opt-btn.wrong {
+  border-color: #ff2244 !important;
+  background: rgba(255,34,68,0.06) !important;
+  color: #ff4466 !important;
+}
+.opt-btn.wrong .opt-letter { color: #ff4466; }
+
+.opt-btn.action {
+  border-color: rgba(255,184,0,0.2);
+  color: rgba(255,184,0,0.7);
+  font-size: 16px;
+}
+.opt-btn.action .opt-letter { color: var(--amber); }
+.opt-btn.action:hover { border-color: var(--amber); color: var(--amber); }
+
+/* FREE INPUT */
+.free-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.free-input-label {
+  font-size: 11px;
+  color: rgba(255,184,0,0.7);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.free-textarea {
+  background: rgba(0,245,255,0.02);
+  border: 1px solid rgba(0,245,255,0.15);
+  border-radius: 2px;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--vt);
+  font-size: 19px;
+  padding: 12px 16px;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.free-textarea:focus { border-color: rgba(0,245,255,0.4); }
+.free-textarea::placeholder { color: rgba(255,255,255,0.2); }
+
+.send-btn {
+  align-self: flex-end;
+  background: rgba(0,245,255,0.06);
+  border: 1px solid rgba(0,245,255,0.3);
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 10px 20px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+.send-btn:hover {
+  background: rgba(0,245,255,0.1);
+  box-shadow: 0 0 16px rgba(0,245,255,0.15);
+}
+
+/* LOADING */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(0,245,255,0.6);
+  font-size: 14px;
+  letter-spacing: 2px;
+  padding: 12px 0;
+}
+
+.loading-dots span {
+  animation: ldot 1.4s infinite;
+  display: inline-block;
+}
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ldot { 0%,80%,100%{transform:scale(0.5);opacity:0.3} 40%{transform:scale(1);opacity:1} }
+
+/* ═══════════════════════════════════════
+   MODAL OVERLAY
+═══════════════════════════════════════ */
+#modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+#modal-overlay.show { display: flex; }
+
+.modal-box {
+  background: var(--dark2);
+  border: 1px solid rgba(0,245,255,0.2);
+  border-radius: 4px;
+  padding: 32px 36px;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+  animation: modalIn 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes modalIn {
+  from { transform: scale(0.8) translateY(20px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.modal-box::before {
+  content:'';
+  position:absolute; top:0; left:0; right:0; height:1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+
+.modal-title {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.modal-body {
+  font-family: var(--vt);
+  font-size: 19px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.6;
+  white-space: pre-line;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.modal-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,245,255,0.06);
+  border: 1px solid rgba(0,245,255,0.2);
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-family: var(--display);
+  font-size: 11px;
+  color: var(--cyan);
+  margin-bottom: 20px;
+}
+
+.modal-continue {
+  display: inline-block;
+  background: transparent;
+  border: 1px solid rgba(0,245,255,0.3);
+  color: var(--cyan);
+  font-family: var(--display);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  padding: 12px 28px;
+  cursor: pointer;
+  border-radius: 2px;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+.modal-continue:hover {
+  background: rgba(0,245,255,0.06);
+  box-shadow: 0 0 20px rgba(0,245,255,0.1);
+}
+
+/* XP GAINED FLASH */
+#xp-flash {
+  position: fixed;
+  top: 80px; right: 24px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--amber);
+  text-shadow: 0 0 10px var(--amber);
+  opacity: 0;
+  transform: translateY(0);
+  transition: all 0.8s ease;
+  pointer-events: none;
+  z-index: 9998;
+  letter-spacing: 2px;
+}
+#xp-flash.show { opacity: 1; transform: translateY(-20px); }
+
+/* TYPE BADGE */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 2px;
+  margin-bottom: 10px;
+  font-family: var(--display);
+}
+.badge-qcm       { background: rgba(0,245,255,0.08); color: var(--cyan); border: 1px solid rgba(0,245,255,0.2); }
+.badge-vrai_faux { background: rgba(255,184,0,0.08); color: var(--amber); border: 1px solid rgba(255,184,0,0.2); }
+.badge-cas_pratique { background: rgba(255,0,170,0.08); color: var(--magenta); border: 1px solid rgba(255,0,170,0.2); }
+.badge-classement{ background: rgba(0,255,136,0.08); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+.badge-redaction { background: rgba(255,100,0,0.08); color: #ff8844; border: 1px solid rgba(255,100,0,0.2); }
+
+/* BOTTOM STATUS BAR */
+#status-bar {
+  height: 28px;
+  border-top: 1px solid rgba(0,245,255,0.08);
+  display: flex;
+  align-items: center;
+  padding: 0 20px 0 228px;
+  gap: 20px;
+  font-size: 10px;
+  color: rgba(0,245,255,0.3);
+  letter-spacing: 1.5px;
+}
+
+.status-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 5px var(--green);
+  animation: pulse 2s infinite;
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="header">
+    <div class="logo" data-text="RECRU-QUEST">RECRU<span>-QUEST</span></div>
+    <div class="header-right">
+      <div class="stat-chip">
+        <div>
+          <div class="label">Crédibilité</div>
+          <div class="mini-bar"><div class="mini-bar-fill bar-hp" id="hp-bar" style="width:100%"></div></div>
+        </div>
+        <div class="value hp-value" id="hp-val">10</div>
+      </div>
+      <div class="stat-chip">
+        <div>
+          <div class="label">Expérience</div>
+          <div class="mini-bar"><div class="mini-bar-fill bar-xp" id="xp-bar" style="width:0%"></div></div>
+        </div>
+        <div class="value xp-value" id="xp-val">0</div>
+      </div>
+      <div class="stat-chip">
+        <div class="label">Score</div>
+        <div class="value score-value" id="score-val">000</div>
+      </div>
+    </div>
+  </header>
+
+  <div id="main">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <!-- NPC -->
+      <div id="npc-portrait-container">
+        <canvas id="npc-canvas" width="160" height="160"></canvas>
+        <div class="npc-nameplate" id="npc-name">—</div>
+        <div class="npc-role" id="npc-role">Chargé(e) de recrutement</div>
+      </div>
+
+      <!-- MAP -->
+      <div class="sidebar-section">
+        <div class="sidebar-label">Progression</div>
+        <div id="phase-map">
+          <!-- generated by JS -->
+        </div>
+
+        <div style="margin-top:16px">
+          <div class="sidebar-label">Défis</div>
+          <div class="challenges-meter" id="ch-meter">
+            <div class="ch-pip active"></div>
+            <div class="ch-pip"></div>
+            <div class="ch-pip"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECAP -->
+      <div class="sidebar-section">
+        <div class="sidebar-label">Actions</div>
+        <button class="opt-btn action" style="width:100%;font-size:14px;" onclick="showRecap()">
+          <span class="opt-letter">📖</span>Fiche de cours
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <main id="content">
+      <div id="world-view">
+        <canvas id="world-canvas"></canvas>
+        <div class="room-label" id="room-label"><span class="room-icon">◈</span><span id="room-name">Initialisation...</span></div>
+      </div>
+
+      <div id="dialogue-area">
+        <div class="speaker-line">
+          <div class="speaker-name" id="speaker-name" style="color:var(--cyan)">SYSTÈME</div>
+        </div>
+        <div id="type-badge-container"></div>
+        <div class="dialogue-box" id="dialogue-text">Chargement du module MEC...</div>
+        <div id="options-area"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="status-bar">
+    <div class="status-dot"></div>
+    <span>BTS MCO — MODULE MEC — RECRUTEMENT</span>
+    <span id="status-phase">PHASE 1/4</span>
+    <span id="status-scene">DÉFI 1/3</span>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">—</div>
+    <div class="modal-body" id="modal-body"></div>
+    <div id="modal-badge" class="modal-score-badge" style="display:none"></div>
+    <button class="modal-continue" onclick="closeModal()">[ Continuer ]</button>
+  </div>
+</div>
+
+<!-- XP FLASH -->
+<div id="xp-flash">+00 XP</div>
+
+<script>
+// ══════════════════════════════════════════
+//  GAME STATE
+// ══════════════════════════════════════════
+const S = {
+  phase: 1, sceneIdx: 0, hp: 10, maxHp: 10,
+  xp: 0, score: 0, loading: false,
+  phasesDone: [], modalCb: null,
+  tick: 0
+};
+
+const CHALLENGES_PER_PHASE = 3;
+
+const PHASES = [
+  { id:1, name:"Besoins & Annonce", room:"Bureau des Ressources Humaines",
+    npc:"Martine Duval", role:"Directrice Commerciale",
+    color:"#ff00aa", accentIdx:0 },
+  { id:2, name:"Sélection des CV", room:"Salle de Tri — Candidatures",
+    npc:"Thomas Iborra", role:"Responsable Recrutement",
+    color:"#00f5ff", accentIdx:1 },
+  { id:3, name:"Entretiens", room:"Salle d'Entretien Confidentielle",
+    npc:"Léa Fontaine", role:"Manager Commercial",
+    color:"#aa44ff", accentIdx:2 },
+  { id:4, name:"Intégration", room:"Open Space — Équipe Commerciale",
+    npc:"Karim Bellal", role:"Responsable RH",
+    color:"#00ff88", accentIdx:3 }
+];
+
+const PHASE_COLORS = ["#ff00aa","#00f5ff","#aa44ff","#00ff88"];
+
+const KNOWLEDGE = [
+  `PHASE 1 - Besoins en personnel, fiche de poste et annonce (BTS MCO - Module MEC):
+Diagnostic RH: Analyser l'activité (CA, pics, projets e-commerce), recenser les ressources existantes (ETP), calculer les agents nécessaires avec la formule: Charge totale ÷ Productivité par agent = Nombre d'agents, identifier les compétences manquantes, prévoir le budget (coût salarial + coût recrutement).
+Types de besoins: remplacement d'un départ, saisonnalité (ex: soldes, Noël), ouverture d'un nouveau rayon, accroissement d'activité.
+Risques: surcoûts si sureffectif (turnover, masse salariale inutile), sous-performance si sous-effectif (mauvaise qualité client).
+Profil-personae candidat: 1. Compétences techniques/savoir-faire (gestion caisse, logiciel, techniques de vente), 2. Compétences comportementales/savoir-être (sens du service, autonomie, travail en équipe), 3. Motivations (mobilité, disponibilité week-end, intérêt pour le secteur).
+Cas Décathlon: managers autonomes pour recruter selon besoins locaux. Cas Carrefour: espace candidat centralisé + recrutements locaux possibles.
+Préparer le recrutement - 4 piliers: définition précise du besoin (savoir qui on cherche), cohérence stratégique (alignement stratégie commerciale globale), cadre légal (droit du travail, non-discrimination), efficience (process clair pour attirer rapidement).
+Canaux de diffusion: jobboards, réseaux sociaux, cooptation, Pôle Emploi, écoles.
+Rédiger une annonce efficace - 4 objectifs: Attirer (capter des candidatures qualifiées), Refléter (image fidèle du poste et de l'entreprise), Filtrer (décourager les profils inadaptés dès la lecture), Optimiser (réduire le temps de sélection). Structure annonce: accroche percutante + missions concrètes + profil recherché + avantages/culture d'entreprise + appel à l'action (postuler avant X).`,
+
+  `PHASE 2 - Sélectionner les CV (BTS MCO - Module MEC):
+Planifier le recrutement: identifier le besoin avec précision: la raison du recrutement (remplacement, saisonnalité, ouverture rayon, accroissement activité), le poste à pourvoir (missions, compétences, contraintes horaires), le profil recherché (niveau d'étude, expérience, qualités relationnelles).
+Exemple Jules: le responsable constate un pic d'activité lors des soldes d'hiver. Besoin: recruter 2 vendeurs polyvalents pour 6 semaines. Profil: sens du service, dynamisme, aisance à la caisse.
+Organiser les ressources matérielles et humaines: Qui conduit les entretiens? Où se déroulent-ils? Quels outils sont nécessaires (tests métier, fiches de poste, grilles d'évaluation)?
+Exemple Burger King recrutement collectif: réservation d'une salle, formation des managers au processus d'entretien, préparation des fiches d'évaluation standardisées.
+Critères de sélection des CV: formation et diplômes en adéquation, expériences professionnelles pertinentes, compétences techniques requises, motivation apparente (lettre, personnalisation).
+Méthodes de tri: 1. Lecture rapide (élimination des CV hors profil évidents), 2. Analyse détaillée des CV retenus, 3. Grille de sélection pondérée (notation par critère).
+Impératif légal: respecter la non-discrimination dans tout le processus (sexe, âge, origine, handicap, convictions).
+Communication avec candidats: convocation claire, délais respectés, feedback aux non-retenus.`,
+
+  `PHASE 3 - Conduire les entretiens d'embauche (BTS MCO - Module MEC):
+Contexte référentiel BTS MCO: l'entretien doit être conduit de manière méthodique, cohérente et orientée performance commerciale. Attendus: structurer l'entretien, adopter une posture managériale professionnelle, évaluer objectivement le candidat.
+Avant l'entretien: relire le CV du candidat, préparer la fiche de poste, préparer la grille d'évaluation avec critères pondérés.
+Phase d'accueil (étape 1.2): saluer et se présenter, vérifier la ponctualité, installer le candidat dans un espace calme et professionnel, expliquer le déroulement de l'entretien (environ 30 minutes: retour sur le parcours, puis le poste, puis les questions du candidat).
+Cas pratique magasin d'équipement maison: le responsable accueille dans un bureau à l'écart, script: "L'entretien va durer environ 30 minutes. Nous allons revenir sur votre parcours, puis sur le poste et terminer par vos questions." Résultat: rassure le candidat et structure l'échange.
+Phase de découverte: explorer le parcours, les motivations, les expériences passées.
+Types de questions (section 2.2): 1. Questions ouvertes: permettent au candidat de s'exprimer librement (ex: "Parlez-moi de votre expérience dans la vente?"), 2. Questions fermées: servent à vérifier un point précis (ex: "Êtes-vous disponible le week-end?"), 3. Questions comportementales: basées sur des situations vécues (ex: "Décrivez une situation difficile avec un client et comment vous l'avez gérée?").
+Évaluation objective: utiliser une grille de critères pondérés, noter pendant l'entretien, éviter les biais cognitifs (effet de halo, stéréotypes).
+Clôture: présenter les prochaines étapes du processus, donner une date de réponse précise, remercier le candidat.`,
+
+  `PHASE 4 - Intégrer les collaborateurs (BTS MCO - Module MEC):
+Enjeu stratégique fondamental: "Un recrutement réussi ne suffit pas." Coût d'une démission dans les 3 premiers mois: 3 000 à 8 000 € (formation + perte de performance + nouveau recrutement). Compétence référentiel visée: participer au management de l'équipe commerciale et favoriser la cohésion.
+Risques d'une mauvaise intégration: baisse de motivation du nouvel arrivant, erreurs opérationnelles (caisses, logiciels, process), mauvaise expérience client, turnover élevé qui recommence le cycle.
+Étape 1 - Pré-boarding (avant l'arrivée): préparer le poste de travail (bureau, outils, ordinateur, badge), informer l'équipe de l'arrivée du nouveau collaborateur, prévoir le planning de formation des premiers jours, désigner un tuteur ou parrain.
+Étape 2 - Accueil (Jour J): A. Présentation formelle: accueil personnel par le manager, présentation de l'entreprise et de ses valeurs, vision globale de l'organisation (organigramme). B. Présentation à l'équipe: faciliter l'intégration sociale. Exemple Décathlon: "Voici Yassine, il rejoint le rayon running. Il a une expérience en vente textile." Objectif: rassurer, donner du sens, créer un sentiment d'appartenance.
+Étape 3 - Suivi et montée en compétences: plan de formation progressif (produits, process, outils), rôle du tuteur/parrain au quotidien, points réguliers avec le manager (hebdomadaires les premiers mois), évaluation formelle avant la fin de la période d'essai.
+Indicateurs de succès de l'intégration: taux de rétention à 6 mois, niveau de performance opérationnelle atteint, score de satisfaction du collaborateur, feedback de l'équipe.`
+];
+
+const INTROS = [
+  { text:"Bienvenue, futur(e) Manager ! Notre enseigne a besoin d'un(e) expert(e) en recrutement. Commençons par analyser nos besoins en personnel et rédiger une annonce percutante. Prêt(e) à relever le défi ?" },
+  { text:"Excellent travail sur l'annonce ! Nous avons reçu 47 candidatures. L'heure du tri a sonné. Votre méthode sera déterminante pour identifier les bons profils sans perdre de temps." },
+  { text:"5 candidats retenus. Maintenant, vous devez les rencontrer. Un entretien bien conduit, c'est 80% du succès d'un recrutement. Posture, méthode, objectivité — montrez ce que vous savez faire." },
+  { text:"La recrue est choisie ! Mais attention — 25% des embauches échouent faute d'intégration. Vous avez 30 jours pour transformer ce recrutement en réussite durable. L'équipe vous observe." }
+];
+
+// ══════════════════════════════════════════
+//  CANVAS — WORLD RENDERER
+// ══════════════════════════════════════════
+const wCanvas = document.getElementById('world-canvas');
+const wCtx = wCanvas.getContext('2d');
+
+function resizeWorldCanvas() {
+  const el = document.getElementById('world-view');
+  wCanvas.width = el.offsetWidth;
+  wCanvas.height = el.offsetHeight;
+}
+
+const particles = Array.from({length:30}, () => ({
+  x: Math.random(), y: Math.random(),
+  vx: (Math.random()-0.5)*0.0004,
+  vy: (Math.random()-0.5)*0.0004,
+  size: Math.random()*2+1,
+  alpha: Math.random()*0.5+0.1
+}));
+
+function drawWorld() {
+  const W = wCanvas.width, H = wCanvas.height;
+  if(!W || !H) return;
+  const p = PHASES[S.phase-1];
+  const t = S.tick;
+  const col = PHASE_COLORS[S.phase-1];
+
+  wCtx.clearRect(0,0,W,H);
+
+  // BG gradient
+  const grd = wCtx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0, '#020408');
+  grd.addColorStop(1, '#060c18');
+  wCtx.fillStyle = grd;
+  wCtx.fillRect(0,0,W,H);
+
+  // Grid perspective
+  wCtx.save();
+  wCtx.strokeStyle = `rgba(0,245,255,0.04)`;
+  wCtx.lineWidth = 1;
+  const horizon = H * 0.45;
+  for(let i=0;i<=20;i++) {
+    const x = (i/20)*W;
+    wCtx.beginPath();
+    wCtx.moveTo(W/2 + (x - W/2)*0.1, horizon);
+    wCtx.lineTo(x, H);
+    wCtx.stroke();
+  }
+  for(let i=0;i<=12;i++) {
+    const y = horizon + (i/12)*(H-horizon);
+    const fac = (y-horizon)/(H-horizon);
+    wCtx.globalAlpha = fac * 0.4;
+    wCtx.beginPath();
+    wCtx.moveTo(0,y); wCtx.lineTo(W,y);
+    wCtx.stroke();
+  }
+  wCtx.globalAlpha = 1;
+  wCtx.restore();
+
+  // Horizon glow
+  const hGlow = wCtx.createLinearGradient(0, horizon-20, 0, horizon+30);
+  hGlow.addColorStop(0,'rgba(0,0,0,0)');
+  hGlow.addColorStop(0.5, col.replace('#',`rgba(`).replace(/(..)(..)(..)/, (_,r,g,b)=>`${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`) + `,0.12)`);
+  hGlow.addColorStop(1,'rgba(0,0,0,0)');
+  wCtx.fillStyle = hGlow;
+  wCtx.fillRect(0, horizon-20, W, 50);
+
+  // Particles
+  particles.forEach(p2 => {
+    p2.x += p2.vx; p2.y += p2.vy;
+    if(p2.x<0) p2.x=1; if(p2.x>1) p2.x=0;
+    if(p2.y<0) p2.y=1; if(p2.y>1) p2.y=0;
+    const px = p2.x*W, py = p2.y*H;
+    const hex = col;
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    wCtx.beginPath();
+    wCtx.arc(px, py, p2.size, 0, Math.PI*2);
+    wCtx.fillStyle = `rgba(${r},${g},${b},${p2.alpha*(0.5+0.5*Math.sin(t*0.02+p2.x*10))})`;
+    wCtx.fill();
+  });
+
+  // Buildings silhouette
+  const builds = [
+    { x:0.05, w:0.08, h:0.6, floors:8 },
+    { x:0.15, w:0.06, h:0.45, floors:5 },
+    { x:0.72, w:0.10, h:0.55, floors:7 },
+    { x:0.84, w:0.07, h:0.40, floors:4 },
+  ];
+  builds.forEach(b => {
+    const bx = b.x*W, bw = b.w*W;
+    const bh = b.h*(horizon);
+    const by = horizon - bh;
+    wCtx.fillStyle = '#0a0d18';
+    wCtx.fillRect(bx, by, bw, bh);
+    wCtx.strokeStyle = `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},0.15)`;
+    wCtx.lineWidth = 1;
+    wCtx.strokeRect(bx, by, bw, bh);
+    // windows
+    const cols = Math.floor(bw/12), rows = b.floors;
+    for(let r=0;r<rows;r++) {
+      for(let c=0;c<cols;c++) {
+        const wx = bx + 4 + c*12, wy = by + 8 + r*(bh/rows);
+        const lit = (t + r*cols+c+b.x*100) % 90 < 50;
+        if(lit) {
+          wCtx.fillStyle = `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},0.4)`;
+          wCtx.fillRect(wx, wy, 6, 5);
+        }
+      }
+    }
+  });
+
+  // Central holographic building
+  const cx = W/2 - 60, cw = 120, ch = horizon*0.85, cy = horizon - ch;
+  wCtx.fillStyle = '#080d1e';
+  wCtx.fillRect(cx, cy, cw, ch);
+  // holographic shimmer
+  const shimmerX = (t*2) % (cw*2) - cw;
+  const shimmerG = wCtx.createLinearGradient(cx+shimmerX-30, 0, cx+shimmerX+30, 0);
+  shimmerG.addColorStop(0,'rgba(255,255,255,0)');
+  shimmerG.addColorStop(0.5,`rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},0.08)`);
+  shimmerG.addColorStop(1,'rgba(255,255,255,0)');
+  wCtx.fillStyle = shimmerG;
+  wCtx.fillRect(cx, cy, cw, ch);
+
+  wCtx.strokeStyle = col.replace('#',`rgba(`).replace(/(..)(..)(..)/, (_,r,g,b)=>`${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`) + `,0.4)`;
+  wCtx.lineWidth = 1;
+  wCtx.strokeRect(cx, cy, cw, ch);
+
+  // Phase label on building
+  wCtx.save();
+  wCtx.font = 'bold 9px "Orbitron", sans-serif';
+  wCtx.textAlign = 'center';
+  wCtx.fillStyle = col;
+  wCtx.shadowBlur = 10; wCtx.shadowColor = col;
+  wCtx.fillText(PHASES[S.phase-1].name.toUpperCase(), W/2, cy + 24);
+  wCtx.shadowBlur = 0;
+  wCtx.restore();
+
+  // Windows grid on central building
+  for(let r=0;r<6;r++) {
+    for(let c=0;c<4;c++) {
+      const wx = cx+10+c*24, wy = cy+36+r*24;
+      const lit = (t*0.5 + r*4+c) % 60 < 40;
+      if(lit) {
+        wCtx.fillStyle = `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},0.35)`;
+        wCtx.fillRect(wx, wy, 14, 12);
+      }
+    }
+  }
+
+  // Character sprite (pixel art style)
+  const charX = W * 0.62, charY = horizon + 20;
+  drawPixelChar(wCtx, charX, charY, col, t);
+
+  // NPC sprite
+  const npcX = W * 0.38, npcY = horizon + 22;
+  drawPixelNPC(wCtx, npcX, npcY, PHASE_COLORS[S.phase-1], t);
+
+  // speech bubble
+  const bubX = (charX+npcX)/2, bubY = horizon - 30;
+  wCtx.save();
+  wCtx.fillStyle = 'rgba(0,0,20,0.8)';
+  wCtx.strokeStyle = `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},0.5)`;
+  wCtx.lineWidth=1;
+  roundRect(wCtx, bubX-50, bubY-14, 100, 22, 3);
+  wCtx.fill(); wCtx.stroke();
+  wCtx.font = '10px "Orbitron"';
+  wCtx.fillStyle = col;
+  wCtx.textAlign='center';
+  wCtx.shadowBlur=6; wCtx.shadowColor=col;
+  wCtx.fillText(PHASES[S.phase-1].room.split('—')[0].trim().slice(0,14), bubX, bubY+3);
+  wCtx.shadowBlur=0;
+  wCtx.restore();
+}
+
+function roundRect(ctx, x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h); ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r); ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function drawPixelChar(ctx, x, y, col, t) {
+  const s = 3;
+  const bob = Math.sin(t*0.05)*2;
+  const r=parseInt(col.slice(1,3),16), g=parseInt(col.slice(3,5),16), b=parseInt(col.slice(5,7),16);
+  ctx.save();
+  ctx.translate(x, y+bob);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.beginPath(); ctx.ellipse(0,2,12,4,0,0,Math.PI*2); ctx.fill();
+  // legs
+  const legOff = Math.sin(t*0.08)*3;
+  ctx.fillStyle='#1a2040';
+  ctx.fillRect(-7, 0, 6, 12+legOff); ctx.fillRect(1, 0, 6, 12-legOff);
+  // body
+  ctx.fillStyle=`rgb(${r},${g},${b})`;
+  ctx.fillRect(-9,-18,18,20);
+  // emblem
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  ctx.fillRect(-4,-14,8,8);
+  // head
+  ctx.fillStyle='#f5d0a9';
+  ctx.fillRect(-6,-32,12,14);
+  // eyes
+  ctx.fillStyle='#1a1a2e';
+  ctx.fillRect(-4,-28,3,3); ctx.fillRect(1,-28,3,3);
+  // hair
+  ctx.fillStyle='#2a1a0a';
+  ctx.fillRect(-6,-36,12,6);
+  // glow aura
+  ctx.beginPath();
+  ctx.arc(0,-15, 14, 0, Math.PI*2);
+  ctx.strokeStyle=`rgba(${r},${g},${b},0.15)`;
+  ctx.lineWidth=4; ctx.stroke();
+  ctx.restore();
+}
+
+function drawPixelNPC(ctx, x, y, col, t) {
+  const npcColors = [
+    {shirt:'#c0392b', hair:'#8B4513'},
+    {shirt:'#2980b9', hair:'#1a1a1a'},
+    {shirt:'#8e44ad', hair:'#c0a060'},
+    {shirt:'#27ae60', hair:'#333'}
+  ];
+  const nc = npcColors[S.phase-1];
+  const bob = Math.sin(t*0.04+1)*1.5;
+  ctx.save();
+  ctx.translate(x, y+bob);
+  ctx.fillStyle='rgba(0,0,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(0,2,10,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#1a2040';
+  ctx.fillRect(-5,0,5,12); ctx.fillRect(0,0,5,12);
+  ctx.fillStyle=nc.shirt;
+  ctx.fillRect(-8,-16,16,18);
+  ctx.fillStyle='#f5d0a9';
+  ctx.fillRect(-5,-28,10,13);
+  ctx.fillStyle=nc.hair;
+  ctx.fillRect(-5,-32,10,6);
+  ctx.fillStyle='#1a1a2e';
+  ctx.fillRect(-3,-26,2,2); ctx.fillRect(1,-26,2,2);
+  // small nameplate
+  ctx.font='8px "Share Tech Mono"';
+  ctx.fillStyle=col; ctx.textAlign='center';
+  ctx.fillText(PHASES[S.phase-1].npc.split(' ')[0], 0, -38);
+  ctx.restore();
+}
+
+// NPC PORTRAIT
+const npcCanvas = document.getElementById('npc-canvas');
+const npcCtx = npcCanvas.getContext('2d');
+
+function drawNPCPortrait() {
+  const W=npcCanvas.width, H=npcCanvas.height;
+  npcCtx.clearRect(0,0,W,H);
+  const col = PHASE_COLORS[S.phase-1];
+  const r2=parseInt(col.slice(1,3),16), g2=parseInt(col.slice(3,5),16), b2=parseInt(col.slice(5,7),16);
+  
+  // BG
+  npcCtx.fillStyle='#060c18';
+  npcCtx.fillRect(0,0,W,H);
+  // Grid
+  npcCtx.strokeStyle=`rgba(${r2},${g2},${b2},0.06)`;
+  npcCtx.lineWidth=1;
+  for(let i=0;i<W;i+=16){npcCtx.beginPath();npcCtx.moveTo(i,0);npcCtx.lineTo(i,H);npcCtx.stroke();}
+  for(let i=0;i<H;i+=16){npcCtx.beginPath();npcCtx.moveTo(0,i);npcCtx.lineTo(W,i);npcCtx.stroke();}
+
+  const scale = W/80;
+  const cx=W/2, cy=H/2-8;
+
+  // Glow
+  const glowG = npcCtx.createRadialGradient(cx,cy,0,cx,cy,W*0.4);
+  glowG.addColorStop(0,`rgba(${r2},${g2},${b2},0.12)`);
+  glowG.addColorStop(1,'rgba(0,0,0,0)');
+  npcCtx.fillStyle=glowG; npcCtx.fillRect(0,0,W,H);
+
+  const npcColors = [
+    {shirt:'#c0392b', hair:'#8B4513', skin:'#f5c8a0'},
+    {shirt:'#2980b9', hair:'#111', skin:'#fce0b0'},
+    {shirt:'#8e44ad', hair:'#c0a060', skin:'#f5b89a'},
+    {shirt:'#27ae60', hair:'#333', skin:'#c8a060'}
+  ];
+  const nc2 = npcColors[S.phase-1];
+
+  const px = (x,y,w,h,c) => {
+    npcCtx.fillStyle=c;
+    npcCtx.fillRect(cx+x*scale-w*scale/2, cy+y*scale-h*scale/2, w*scale, h*scale);
+  };
+
+  // Body
+  px(0,10,22,24,nc2.shirt);
+  // Arms
+  px(-14,10,6,18,nc2.skin); px(14,10,6,18,nc2.skin);
+  // Neck
+  px(0,-2,6,6,nc2.skin);
+  // Head
+  px(0,-16,20,18,nc2.skin);
+  // Hair
+  px(0,-26,22,12,nc2.hair);
+  // Eyes
+  npcCtx.fillStyle='#fff';
+  npcCtx.fillRect(cx+(-5)*scale, cy+(-18)*scale, 4*scale, 4*scale);
+  npcCtx.fillRect(cx+(1)*scale, cy+(-18)*scale, 4*scale, 4*scale);
+  npcCtx.fillStyle='#1a1a2e';
+  npcCtx.fillRect(cx+(-4)*scale, cy+(-17)*scale, 2*scale, 2*scale);
+  npcCtx.fillRect(cx+(2)*scale, cy+(-17)*scale, 2*scale, 2*scale);
+  // Mouth
+  npcCtx.fillStyle='#c0706050';
+  npcCtx.fillRect(cx+(-3)*scale, cy+(-10)*scale, 6*scale, 2*scale);
+  // Badge/ID card
+  px(0,4,8,6,'#ffcc00');
+  npcCtx.fillStyle='#000'; npcCtx.font=`${Math.round(5*scale)}px monospace`;
+  npcCtx.textAlign='center'; npcCtx.fillText('ID', cx, cy+4*scale+2);
+
+  // Border
+  npcCtx.strokeStyle=`rgba(${r2},${g2},${b2},0.4)`;
+  npcCtx.lineWidth=2;
+  npcCtx.strokeRect(1,1,W-2,H-2);
+
+  // Corner decorations
+  [[0,0],[W,0],[0,H],[W,H]].forEach(([x,y]) => {
+    const sx = x===0?1:-1, sy = y===0?1:-1;
+    npcCtx.strokeStyle=`rgba(${r2},${g2},${b2},0.6)`;
+    npcCtx.lineWidth=1.5;
+    npcCtx.beginPath();
+    npcCtx.moveTo(x+sx*2, y+sy*12); npcCtx.lineTo(x+sx*2,y+sy*2); npcCtx.lineTo(x+sx*12,y+sy*2);
+    npcCtx.stroke();
+  });
+
+  // Scanline
+  const scanY = ((S.tick*2) % H);
+  npcCtx.fillStyle=`rgba(${r2},${g2},${b2},0.06)`;
+  npcCtx.fillRect(0,scanY,W,2);
+}
+
+// ══════════════════════════════════════════
+//  PHASE MAP
+// ══════════════════════════════════════════
+function renderPhaseMap() {
+  const container = document.getElementById('phase-map');
+  container.innerHTML = '';
+  PHASES.forEach((ph, i) => {
+    const id = ph.id;
+    let cls = 'phase-node locked';
+    if(S.phasesDone.includes(id)) cls = 'phase-node done';
+    else if(id === S.phase) cls = 'phase-node active';
+    else if(id < S.phase) cls = 'phase-node done';
+    
+    const node = document.createElement('div');
+    node.className = cls;
+    node.innerHTML = `
+      <div class="phase-dot"></div>
+      <div class="phase-info">
+        <div class="phase-num">PHASE ${id}</div>
+        <div class="phase-name">${ph.name}</div>
+      </div>`;
+    container.appendChild(node);
+    if(i < PHASES.length-1) {
+      const conn = document.createElement('div');
+      conn.className = 'phase-connector';
+      container.appendChild(conn);
+    }
+  });
+}
+
+function renderChallengesMeter() {
+  const meter = document.getElementById('ch-meter');
+  meter.innerHTML = '';
+  for(let i=0;i<CHALLENGES_PER_PHASE;i++) {
+    const pip = document.createElement('div');
+    pip.className = 'ch-pip' + (i < S.sceneIdx ? ' done' : i === S.sceneIdx ? ' active' : '');
+    meter.appendChild(pip);
+  }
+}
+
+// ══════════════════════════════════════════
+//  HUD UPDATE
+// ══════════════════════════════════════════
+function updateHUD() {
+  document.getElementById('hp-bar').style.width = (S.hp/S.maxHp*100)+'%';
+  document.getElementById('xp-bar').style.width = Math.min(S.xp,100)+'%';
+  document.getElementById('hp-val').textContent = S.hp;
+  document.getElementById('xp-val').textContent = S.xp;
+  document.getElementById('score-val').textContent = String(S.score).padStart(5,'0');
+  document.getElementById('status-phase').textContent = `PHASE ${S.phase}/4`;
+  document.getElementById('status-scene').textContent = `DÉFI ${S.sceneIdx+1}/${CHALLENGES_PER_PHASE}`;
+  renderPhaseMap();
+  renderChallengesMeter();
+
+  const p = PHASES[S.phase-1];
+  document.getElementById('npc-name').textContent = p.npc.toUpperCase();
+  document.getElementById('npc-role').textContent = p.role;
+  document.getElementById('room-name').textContent = p.room;
+  document.documentElement.style.setProperty('--current', p.color);
+}
+
+// ══════════════════════════════════════════
+//  DIALOGUE / UI
+// ══════════════════════════════════════════
+function setContent({ speaker, color, badge, text, options }) {
+  const p = PHASES[S.phase-1];
+  const spEl = document.getElementById('speaker-name');
+  spEl.textContent = speaker || p.npc;
+  spEl.style.color = color || p.color;
+
+  const badgeContainer = document.getElementById('type-badge-container');
+  badgeContainer.innerHTML = '';
+  if(badge) {
+    const b = document.createElement('div');
+    b.className = `type-badge badge-${badge.type}`;
+    b.textContent = badge.label;
+    badgeContainer.appendChild(b);
+  }
+
+  document.getElementById('dialogue-text').textContent = text;
+
+  const optArea = document.getElementById('options-area');
+  optArea.innerHTML = '';
+  if(options) {
+    options.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn' + (opt.action ? ' action':'');
+      const letters = ['A','B','C','D','E','F'];
+      btn.innerHTML = `<span class="opt-letter">${opt.action ? '◈' : letters[i]||'◈'}</span>${opt.label}`;
+      btn.onclick = opt.fn;
+      optArea.appendChild(btn);
+    });
+  }
+}
+
+function showLoading(msg) {
+  document.getElementById('type-badge-container').innerHTML = '';
+  document.getElementById('dialogue-text').textContent = msg || 'Connexion au module IA...';
+  document.getElementById('options-area').innerHTML = `
+    <div class="loading-indicator">
+      <div class="loading-dots">
+        <span>■</span><span>■</span><span>■</span>
+      </div>
+      <span>Traitement en cours</span>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════
+function showModal({title, body, color, badge, callback}) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-title').style.color = color || '#00f5ff';
+  document.getElementById('modal-body').textContent = body;
+  const mBadge = document.getElementById('modal-badge');
+  if(badge) {
+    mBadge.textContent = badge;
+    mBadge.style.display='inline-flex';
+    mBadge.style.color = color || 'var(--cyan)';
+    mBadge.style.borderColor = (color||'#00f5ff')+'44';
+  } else { mBadge.style.display='none'; }
+  document.getElementById('modal-overlay').classList.add('show');
+  document.querySelector('.modal-box').style.borderTopColor = color || '#00f5ff';
+  S.modalCb = callback;
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  if(S.modalCb) { const cb=S.modalCb; S.modalCb=null; cb(); }
+}
+
+// XP Flash
+function flashXP(amount, color) {
+  const el = document.getElementById('xp-flash');
+  el.textContent = '+' + amount + ' XP';
+  el.style.color = color || 'var(--amber)';
+  el.style.textShadow = `0 0 10px ${color||'var(--amber)'}`;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1200);
+}
+
+// ══════════════════════════════════════════
+//  CLAUDE API
+// ══════════════════════════════════════════
+async function callClaude(messages) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      system:`Tu es le moteur pédagogique du jeu RECRU-QUEST, un jeu d'aventure éducatif pour étudiants BTS MCO sur le module MEC (Management de l'Équipe Commerciale), compétence "Participer au recrutement".
+
+Contenu du cours pour la phase actuelle (Phase ${S.phase}):
+${KNOWLEDGE[S.phase-1]}
+
+RÈGLE ABSOLUE: Réponds UNIQUEMENT avec du JSON valide, sans markdown, sans backticks, sans texte avant ou après.`,
+      messages
+    })
+  });
+  const data = await resp.json();
+  const txt = data.content.map(c=>c.text||'').join('');
+  return JSON.parse(txt.replace(/```json|```/g,'').trim());
+}
+
+// ══════════════════════════════════════════
+//  CHALLENGE ENGINE
+// ══════════════════════════════════════════
+const TYPES = ['QCM','QCM','vrai_faux','cas_pratique','classement','redaction'];
+const TYPE_LABELS = {
+  QCM:'Question à choix multiple', vrai_faux:'Vrai ou Faux',
+  cas_pratique:'Cas Pratique', classement:'Remise en ordre',
+  redaction:'Production écrite'
+};
+const TYPE_ICONS = {
+  QCM:'⬡', vrai_faux:'◈', cas_pratique:'◉', classement:'⟦⟧', redaction:'✦'
+};
+
+async function generateChallenge() {
+  const p = PHASES[S.phase-1];
+  const type = TYPES[Math.floor(Math.random()*TYPES.length)];
+  showLoading(`${p.npc} prépare votre défi...`);
+
+  const prompt = `Génère un défi pédagogique de type "${type}" sur la Phase ${S.phase} du recrutement BTS MCO.
+Réponds avec ce JSON exact (sans markdown):
+{
+  "type": "${type}",
+  "enonce": "Question ou situation (2-3 phrases max, contexte réaliste avec une enseigne)",
+  "options": ["option A","option B","option C","option D"],
+  "bonne_reponse": 0,
+  "explication": "Explication pédagogique (1 phrase précise)",
+  "xp": 15,
+  "difficulte": "Facile|Moyen|Expert",
+  "description_action": "Pour redaction/cas_pratique uniquement: consigne précise"
+}
+Pour vrai_faux: 2 options seulement ["Vrai","Faux"].
+Pour redaction/cas_pratique: omettre "options", inclure "description_action".
+Pour classement: 4 étapes à remettre dans l'ordre, bonne_reponse = index 0.`;
+
+  try {
+    const ch = await callClaude([{role:'user',content:prompt}]);
+    displayChallenge(ch);
+  } catch(e) {
+    setContent({
+      speaker:'SYSTÈME', color:'#ff4466', text:'Erreur de connexion au module IA. Veuillez réessayer.',
+      options:[{label:'Réessayer', fn:generateChallenge}]
+    });
+  }
+}
+
+function displayChallenge(ch) {
+  const p = PHASES[S.phase-1];
+  const badge = { type: ch.type, label: `${TYPE_ICONS[ch.type]||'◈'} ${TYPE_LABELS[ch.type]||ch.type} · ${ch.difficulte||'Moyen'}` };
+  
+  const optArea = document.getElementById('options-area');
+  optArea.innerHTML = '';
+  
+  const spEl = document.getElementById('speaker-name');
+  spEl.textContent = p.npc;
+  spEl.style.color = p.color;
+
+  const badgeContainer = document.getElementById('type-badge-container');
+  badgeContainer.innerHTML = '';
+  const b = document.createElement('div');
+  b.className = `type-badge badge-${ch.type}`;
+  b.textContent = badge.label;
+  badgeContainer.appendChild(b);
+
+  document.getElementById('dialogue-text').textContent = ch.enonce;
+
+  if(ch.type==='redaction'||ch.type==='cas_pratique') {
+    const wrap = document.createElement('div');
+    wrap.className='free-input-wrap';
+    const label = document.createElement('div');
+    label.className='free-input-label';
+    label.textContent = '✦ ' + (ch.description_action||'Rédigez votre réponse :');
+    const ta = document.createElement('textarea');
+    ta.className='free-textarea'; ta.placeholder='Votre réponse ici...';
+    const btn = document.createElement('button');
+    btn.className='send-btn'; btn.textContent='[ Valider ] ↗';
+    btn.onclick = () => evaluateFree(ta.value, ch);
+    wrap.appendChild(label); wrap.appendChild(ta); wrap.appendChild(btn);
+    optArea.appendChild(wrap);
+  } else if(ch.options) {
+    const letters = ['A','B','C','D'];
+    ch.options.forEach((opt,i) => {
+      const btn = document.createElement('button');
+      btn.className='opt-btn';
+      btn.innerHTML=`<span class="opt-letter">${letters[i]||i}</span>${opt}`;
+      btn.onclick=()=>checkAnswer(i,btn,ch);
+      optArea.appendChild(btn);
+    });
+  }
+
+  // Skip button
+  const skip = document.createElement('button');
+  skip.className='opt-btn action';
+  skip.innerHTML=`<span class="opt-letter">⚡</span>Passer ce défi (−1 crédibilité)`;
+  skip.onclick=()=>{
+    S.hp=Math.max(0,S.hp-1); updateHUD();
+    if(S.hp<=0){gameOver();return;}
+    showModal({title:'Défi passé',body:'Vous évitez la question mais perdez en crédibilité auprès de l\'équipe.',color:'#ff8844',badge:'−1 Crédibilité',callback:nextChallenge});
+  };
+  optArea.appendChild(skip);
+}
+
+function checkAnswer(idx, btn, ch) {
+  document.querySelectorAll('.opt-btn:not(.action)').forEach(b=>b.disabled=true);
+  const correct = idx===ch.bonne_reponse;
+  btn.classList.add(correct?'correct':'wrong');
+  if(!correct) document.querySelectorAll('.opt-btn:not(.action)')[ch.bonne_reponse]?.classList.add('correct');
+  
+  if(correct) {
+    S.xp+=ch.xp||15; S.score+=(ch.xp||15)*2; updateHUD();
+    flashXP(ch.xp||15, '#00ff88');
+    showModal({title:'✓ Correct !',body:ch.explication,color:'#00ff88',badge:`+${ch.xp||15} XP · +${(ch.xp||15)*2} pts`,callback:nextChallenge});
+  } else {
+    S.hp=Math.max(0,S.hp-1); S.score=Math.max(0,S.score-10); updateHUD();
+    if(S.hp<=0){setTimeout(gameOver,1000);return;}
+    const correctAns = ch.options?.[ch.bonne_reponse]||'';
+    showModal({title:'✗ Erreur',body:`Bonne réponse : ${correctAns}\n\n${ch.explication}`,color:'#ff2244',badge:'−1 Crédibilité',callback:nextChallenge});
+  }
+}
+
+async function evaluateFree(input, ch) {
+  if(!input.trim()) return;
+  showLoading('Évaluation de votre réponse en cours...');
+  const prompt = `Évalue cette réponse d'étudiant BTS MCO:
+Défi: ${ch.enonce}
+Réponse: "${input}"
+JSON requis:
+{"score":0,"mention":"Excellent|Bien|Passable|Insuffisant","feedback":"1 phrase","points_positifs":"Ce qui est bien","a_ameliorer":"Ce qui manque","xp_attribue":0}
+score de 0 à 100, xp_attribue de 0 à 20.`;
+  try {
+    const ev = await callClaude([{role:'user',content:prompt}]);
+    const xp = ev.xp_attribue||0;
+    S.xp+=xp; S.score+=xp*2;
+    if(ev.score<40) S.hp=Math.max(0,S.hp-1);
+    updateHUD();
+    if(xp>0) flashXP(xp, ev.score>=60?'#00ff88':'#ffb800');
+    const body = `${ev.mention} — ${ev.score}/100\n\n✓ ${ev.points_positifs}\n◈ ${ev.a_ameliorer}\n\n${ev.feedback}`;
+    showModal({
+      title:ev.mention, body, color:ev.score>=70?'#00ff88':ev.score>=45?'#ffb800':'#ff4466',
+      badge:`+${xp} XP · Score ${ev.score}/100`, callback:nextChallenge
+    });
+  } catch(e) {
+    showModal({title:'Réponse enregistrée',body:'Continuez votre progression !',color:'#00f5ff',callback:nextChallenge});
+  }
+}
+
+// ══════════════════════════════════════════
+//  SCENE FLOW
+// ══════════════════════════════════════════
+function nextChallenge() {
+  S.sceneIdx++;
+  if(S.sceneIdx >= CHALLENGES_PER_PHASE) {
+    S.sceneIdx = 0;
+    if(S.phase < 4) { phaseComplete(); }
+    else { victoire(); }
+  } else {
+    generateChallenge();
+  }
+}
+
+function phaseComplete() {
+  S.phasesDone.push(S.phase);
+  const oldPhase = S.phase;
+  S.phase++;
+  S.xp = Math.min(S.xp+20, 100);
+  S.score += 100;
+  updateHUD();
+  drawNPCPortrait();
+  showModal({
+    title:`Phase ${oldPhase} validée`,
+    body:`Vous progressez avec brio !\n\nProchaine destination :\n${PHASES[S.phase-1].room}\n\nNouveau contact : ${PHASES[S.phase-1].npc}`,
+    color: PHASE_COLORS[S.phase-1],
+    badge: `+100 pts bonus · Phase ${S.phase}/4`,
+    callback: startPhaseIntro
+  });
+}
+
+function startPhaseIntro() {
+  const p = PHASES[S.phase-1];
+  setContent({
+    speaker: p.npc, color: p.color,
+    text: INTROS[S.phase-1].text,
+    options: [
+      {label:'Relever le défi', fn:generateChallenge},
+      {label:'Consulter la fiche de cours', fn:showRecap}
+    ]
+  });
+}
+
+function showRecap() {
+  const p = PHASES[S.phase-1];
+  const shortKnowledge = [
+    '📌 Diagnostiquez le besoin (charge ÷ productivité). Définissez le profil-personae : savoir-faire + savoir-être + motivations. 4 piliers : définition précise, cohérence stratégique, cadre légal, efficience. Annonce = Attirer + Refléter + Filtrer + Optimiser.',
+    '📌 Identifiez la raison du recrutement, le poste et le profil. Organisez les ressources (qui, où, quels outils). Triez les CV en 3 étapes : lecture rapide → analyse détaillée → grille pondérée. Respectez la non-discrimination à chaque étape.',
+    '📌 3 types de questions : Ouvertes (s\'exprimer librement), Fermées (vérifier un point précis), Comportementales (situations vécues). Accueil = espace calme + script de 30min. Évaluation objective avec grille de critères pondérés.',
+    '📌 Coût d\'une démission < 3 mois : 3 000 à 8 000 €. 3 étapes : Pré-boarding (avant J) → Accueil Jour J (présentation formelle + équipe) → Suivi + montée en compétences. Objectif : sentiment d\'appartenance.'
+  ];
+  setContent({
+    speaker:'📖 FICHE DE COURS — Phase '+S.phase, color:'#ffb800',
+    text: shortKnowledge[S.phase-1],
+    options:[{label:'Retour au défi', fn:generateChallenge}]
+  });
+}
+
+function gameOver() {
+  setContent({
+    speaker:'DIRECTEUR GÉNÉRAL', color:'#ff2244',
+    text:'Votre manque de rigueur managériale est préoccupant... Le Directeur souhaite que vous révisiez les fondamentaux avant de reprendre vos fonctions.',
+    options:[
+      {label:'Recommencer depuis le début', fn:initGame},
+      {label:'Revoir le cours de cette phase', fn:showRecap}
+    ]
+  });
+}
+
+function victoire() {
+  const stars = S.score>=600?'★★★':S.score>=400?'★★☆':'★☆☆';
+  const mention = S.score>=600?'EXCELLENCE':S.score>=400?'TRÈS BIEN':'BIEN';
+  setContent({
+    speaker:'JURY BTS MCO', color:'#ffb800',
+    text:`FÉLICITATIONS !\n\nVous avez maîtrisé les 4 phases du processus de recrutement MEC.\n\nScore final : ${S.score} points\nMention : ${mention} ${stars}\nExpérience accumulée : ${S.xp} XP`,
+    options:[
+      {label:'Rejouer pour améliorer mon score', fn:initGame},
+      {label:'Voir mon bilan de compétences', fn:showBilan}
+    ]
+  });
+}
+
+async function showBilan() {
+  showLoading('Génération de votre bilan pédagogique personnalisé...');
+  const prompt = `L'étudiant a terminé le jeu BTS MCO recrutement. Score: ${S.score}. XP: ${S.xp}. HP restants: ${S.hp}/10.
+Génère un bilan JSON:
+{"titre":"Titre motivant","points_forts":["PF1","PF2"],"a_consolider":["Point 1"],"conseil_examen":"Conseil en 1 phrase pour l'épreuve BTS MCO","profil":"Manager Confirmé|Manager en développement|Futur Expert RH|Stratège Commercial","note_estimee":"XX/20"}`;
+  try {
+    const bilan = await callClaude([{role:'user',content:prompt}]);
+    setContent({
+      speaker:'BILAN PÉDAGOGIQUE', color:'#00f5ff',
+      text:`${bilan.titre}\n\nProfil : ${bilan.profil}\nNote estimée : ${bilan.note_estimee}/20\n\n✓ ${bilan.points_forts.join(' · ')}\n◈ À consolider : ${bilan.a_consolider.join(', ')}\n\n💡 ${bilan.conseil_examen}`,
+      options:[{label:'Rejouer l\'aventure', fn:initGame}]
+    });
+  } catch(e) {
+    setContent({speaker:'BILAN',color:'#00f5ff',text:`Score: ${S.score} | XP: ${S.xp}/100\nBravo pour votre parcours !`,options:[{label:'Rejouer',fn:initGame}]});
+  }
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+function initGame() {
+  Object.assign(S, {phase:1,sceneIdx:0,hp:10,maxHp:10,xp:0,score:0,loading:false,phasesDone:[],modalCb:null});
+  updateHUD();
+  drawNPCPortrait();
+  const p = PHASES[0];
+  setContent({
+    speaker: p.npc, color: p.color,
+    text: INTROS[0].text,
+    options:[
+      {label:'Commencer l\'aventure', fn:generateChallenge},
+      {label:'Consulter la fiche de cours Phase 1', fn:showRecap}
+    ]
+  });
+}
+
+// ══════════════════════════════════════════
+//  GAME LOOP
+// ══════════════════════════════════════════
+function loop() {
+  S.tick++;
+  drawWorld();
+  drawNPCPortrait();
+  requestAnimationFrame(loop);
+}
+
+// ══════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════
+window.addEventListener('load', () => {
+  resizeWorldCanvas();
+  window.addEventListener('resize', resizeWorldCanvas);
+  initGame();
+  loop();
+});
+</script>
+</body>
+</html>
