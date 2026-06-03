@@ -1431,15 +1431,16 @@ function evaluateLocalFree(input, ch) {
 
 function generateChallenge() {
   const p = PHASES[S.phase-1];
-  showLoading(`${p.npc} analyse votre dossier...`);
+  showLoading(p.npc + ' analyse votre dossier...');
   setTimeout(() => {
     try {
       const ch = getRandomChallenge(S.phase);
       displayChallenge(ch);
     } catch(e) {
+      console.error('generateChallenge error:', e);
       setContent({
         speaker:'SYSTÈME', color:'#ff4466',
-        text:'Erreur de chargement du défi. Rechargez la page.',
+        text:'Erreur : ' + e.message,
         options:[{label:'Réessayer', fn:generateChallenge}]
       });
     }
