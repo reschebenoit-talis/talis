@@ -1429,6 +1429,16 @@ function evaluateLocalFree(input, ch) {
 }
 
 
+const TYPES = ['QCM','QCM','vrai_faux','cas_pratique','classement'];
+const TYPE_LABELS = {
+  QCM:'Question à choix multiple', vrai_faux:'Vrai ou Faux',
+  cas_pratique:'Cas Pratique', classement:'Remise en ordre',
+  redaction:'Production écrite'
+};
+const TYPE_ICONS = {
+  QCM:'⬡', vrai_faux:'◈', cas_pratique:'◉', classement:'⟦⟧', redaction:'✦'
+};
+
 function generateChallenge() {
   const p = PHASES[S.phase-1];
   showLoading(p.npc + ' analyse votre dossier...');
