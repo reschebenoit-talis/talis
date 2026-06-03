@@ -49,9 +49,9 @@ body::after {
   pointer-events:none; z-index:0;
 }
 
-/* ═══════════════════════════════════════
+/* ---------------------------------------
    GAME WRAPPER
-═══════════════════════════════════════ */
+--------------------------------------- */
 #app {
   position: relative;
   max-width: 900px;
@@ -148,9 +148,9 @@ body::after {
 .bar-hp { background: linear-gradient(90deg,#ff2244,#ff6688); box-shadow:0 0 8px #ff2244; }
 .bar-xp { background: linear-gradient(90deg,var(--amber),#ffe066); box-shadow:0 0 8px var(--amber); }
 
-/* ═══════════════════════════════════════
+/* ---------------------------------------
    MAIN LAYOUT
-═══════════════════════════════════════ */
+--------------------------------------- */
 #main {
   display: grid;
   grid-template-columns: 200px 1fr;
@@ -541,9 +541,9 @@ body::after {
 .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes ldot { 0%,80%,100%{transform:scale(0.5);opacity:0.3} 40%{transform:scale(1);opacity:1} }
 
-/* ═══════════════════════════════════════
+/* ---------------------------------------
    MODAL OVERLAY
-═══════════════════════════════════════ */
+--------------------------------------- */
 #modal-overlay {
   position: fixed;
   inset: 0;
@@ -797,9 +797,9 @@ body::after {
 <div id="xp-flash">+00 XP</div>
 
 <script>
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  GAME STATE
-// ══════════════════════════════════════════
+// ----------------------------------------
 const S = {
   phase: 1, sceneIdx: 0, hp: 10, maxHp: 10,
   xp: 0, score: 0, loading: false,
@@ -873,9 +873,9 @@ const INTROS = [
   { text:"La recrue est choisie ! Mais attention — 25% des embauches échouent faute d'intégration. Vous avez 30 jours pour transformer ce recrutement en réussite durable. L'équipe vous observe." }
 ];
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  CANVAS — WORLD RENDERER
-// ══════════════════════════════════════════
+// ----------------------------------------
 const wCanvas = document.getElementById('world-canvas');
 const wCtx = wCanvas.getContext('2d');
 
@@ -1213,9 +1213,9 @@ function drawNPCPortrait() {
   npcCtx.fillRect(0,scanY,W,2);
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  PHASE MAP
-// ══════════════════════════════════════════
+// ----------------------------------------
 function renderPhaseMap() {
   const container = document.getElementById('phase-map');
   container.innerHTML = '';
@@ -1253,9 +1253,9 @@ function renderChallengesMeter() {
   }
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  HUD UPDATE
-// ══════════════════════════════════════════
+// ----------------------------------------
 function updateHUD() {
   document.getElementById('hp-bar').style.width = (S.hp/S.maxHp*100)+'%';
   document.getElementById('xp-bar').style.width = Math.min(S.xp,100)+'%';
@@ -1274,9 +1274,9 @@ function updateHUD() {
   document.documentElement.style.setProperty('--current', p.color);
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  DIALOGUE / UI
-// ══════════════════════════════════════════
+// ----------------------------------------
 function setContent({ speaker, color, badge, text, options }) {
   const p = PHASES[S.phase-1];
   const spEl = document.getElementById('speaker-name');
@@ -1320,9 +1320,9 @@ function showLoading(msg) {
     </div>`;
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  MODAL
-// ══════════════════════════════════════════
+// ----------------------------------------
 function showModal({title, body, color, badge, callback}) {
   document.getElementById('modal-title').textContent = title;
   document.getElementById('modal-title').style.color = color || '#00f5ff';
@@ -1355,9 +1355,9 @@ function flashXP(amount, color) {
 }
 
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  BANQUE DE QUESTIONS PRÉ-GÉNÉRÉES
-// ══════════════════════════════════════════
+// ----------------------------------------
 const QUESTION_BANK = {
   1: [
     {type:'QCM',enonce:'Chez Sport Avenue, le directeur constate que le CA du rayon running a augmenté de 30% et ses 3 vendeurs sont surchargés. Quelle est la première étape du diagnostic RH ?',options:['Publier immédiatement une annonce','Analyser la charge et calculer le nombre d\'agents nécessaires','Augmenter les heures supplémentaires','Externaliser le rayon'],bonne_reponse:1,explication:'Le diagnostic RH commence par analyser l\'activité et calculer le besoin réel avant toute action.',xp:15,difficulte:'Facile'},
@@ -1527,9 +1527,9 @@ function evaluateFree(input, ch) {
   setTimeout(() => evaluateLocalFree(input, ch), 500);
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  SCENE FLOW
-// ══════════════════════════════════════════
+// ----------------------------------------
 function nextChallenge() {
   S.sceneIdx++;
   if(S.sceneIdx >= CHALLENGES_PER_PHASE) {
@@ -1619,15 +1619,20 @@ function showBilan() {
   if(S.xp >= 60) pts_forts.push('Bonne progression sur les 4 phases');
   setContent({
     speaker:'BILAN PÉDAGOGIQUE', color:'#00f5ff',
-    text:'Bilan final — Module MEC\n\nProfil : ' + profil + '\nNote estimée : ' + note + '/20\nScore : ' + S.score + ' | XP : ' + S.xp + '\n\n✓ ' + (pts_forts.join(' · ') || 'Continuez vos efforts') + '\n◈ À consolider : ' + (a_consolider.join(', ') || 'Rien — excellent travail !') + '\n\n💡 Conseil BTS : Entraînez-vous sur les cas pratiques de recrutement avec des exemples d\'enseignes réelles.',
-    options:[{label:'Rejouer l\'aventure', fn:initGame}]
+    text:'Bilan final — Module MEC' +
+      '\n\nProfil : ' + profil +
+      '\nNote estimée : ' + note + '/20' +
+      '\nScore : ' + S.score + ' | XP : ' + S.xp +
+      '\n\n✓ ' + (pts_forts.join(' · ') || 'Continuez vos efforts') +
+      '\n◈ À consolider : ' + (a_consolider.join(', ') || 'Rien — excellent travail !') +
+      "\n\n💡 Conseil BTS : Entraînez-vous sur les cas pratiques avec des exemples d'enseignes réelles.",
+    options:[{label:"Rejouer l'aventure", fn:initGame}]
   });
 }
-}
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  INIT
-// ══════════════════════════════════════════
+// ----------------------------------------
 function initGame() {
   Object.assign(S, {phase:1,sceneIdx:0,hp:10,maxHp:10,xp:0,score:0,loading:false,phasesDone:[],modalCb:null});
   updateHUD();
@@ -1643,9 +1648,9 @@ function initGame() {
   });
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  GAME LOOP
-// ══════════════════════════════════════════
+// ----------------------------------------
 function loop() {
   S.tick++;
   drawWorld();
@@ -1653,9 +1658,9 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// ══════════════════════════════════════════
+// ----------------------------------------
 //  BOOT
-// ══════════════════════════════════════════
+// ----------------------------------------
 window.addEventListener('load', () => {
   resizeWorldCanvas();
   window.addEventListener('resize', resizeWorldCanvas);
