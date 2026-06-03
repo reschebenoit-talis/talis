@@ -1013,7 +1013,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             {myClass&&<div style={{color:G.muted,fontSize:13}}>Jeux disponibles pour ta classe <strong style={{color:myClass.color}}>{myClass.name}</strong></div>}
             {isNDRC&&(
               <>
-                <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+                <div onClick={()=>setGameActive('ndrc1')} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
                   <div style={{display:'flex',alignItems:'center',gap:11}}>
                     <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏙️</div>
                     <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>La quête du référencement</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div></div>
@@ -1033,7 +1033,19 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             )}
             {isMCO&&(
               <>
-                {['Jeu 1','Jeu 2','Jeu 3'].map((label,i)=>(
+                {/* Jeu MCO 1 — actif */}
+                <div onClick={()=>setGameActive('mco1')} className="hov" style={{background:G.card,border:`1px solid ${G.accentHot}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:11}}>
+                    <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accentHot},#FF8FA3)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🧑‍💼</div>
+                    <div style={{flex:1}}>
+                      <div className="syne" style={{fontWeight:700,fontSize:14}}>RECRU-QUEST</div>
+                      <div style={{color:G.muted,fontSize:12,marginTop:2}}>Management · Module MEC</div>
+                    </div>
+                    <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
+                  </div>
+                </div>
+                {/* Jeux 2 et 3 — bientôt */}
+                {['Jeu 2','Jeu 3'].map((label,i)=>(
                   <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
                     <div style={{display:'flex',alignItems:'center',gap:11}}>
                       <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
@@ -1045,9 +1057,6 @@ function StudentApp({student,onLogout,onPwdSaved}) {
                     </div>
                   </div>
                 ))}
-                <div style={{background:G.accentHot+'11',border:`1px solid ${G.accentHot}33`,borderRadius:10,padding:'10px 14px',fontSize:12,color:G.accentHot,textAlign:'center'}}>
-                  🎮 Des jeux arrivent bientôt pour ta classe !
-                </div>
               </>
             )}
           </div>
@@ -1057,9 +1066,15 @@ function StudentApp({student,onLogout,onPwdSaved}) {
         <div style={{position:'absolute',inset:0,zIndex:10,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(0,0,0,.5)',flexShrink:0}}>
             <button onClick={()=>setGameActive(false)} style={{background:'none',border:'none',color:'#fff',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Quitter</button>
-            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>La quête du référencement</div>
+            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>
+              {gameActive==='mco1'?'RECRU-QUEST':'La quête du référencement'}
+            </div>
           </div>
-          <iframe src="/game.html" style={{flex:1,width:'100%',border:'none',display:'block'}} title="Jeu"/>
+          <iframe
+            src={gameActive==='mco1'?'/game-mco1.html':'/game.html'}
+            style={{flex:1,width:'100%',border:'none',display:'block'}}
+            title="Jeu"
+          />
         </div>
       )}
       </div>
@@ -2013,7 +2028,7 @@ function TeacherApp({onLogout}) {
             <div style={{color:G.muted,fontSize:13}}>Aperçu de tous les jeux disponibles pour vos classes.</div>
 
             <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accent,letterSpacing:1,marginTop:4}}>NDRC</div>
-            <div onClick={()=>setGameActive(true)} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+            <div onClick={()=>setGameActive('ndrc1')} className="hov" style={{background:G.card,border:`1px solid ${G.accent}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
               <div style={{display:'flex',alignItems:'center',gap:11}}>
                 <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accent},#8B7FFF)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🏙️</div>
                 <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>La quête du référencement</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Stratégie commerciale · Distributeur 3D</div></div>
@@ -2031,7 +2046,15 @@ function TeacherApp({onLogout}) {
             ))}
 
             <div className="syne" style={{fontWeight:700,fontSize:11,color:G.accentHot,letterSpacing:1,marginTop:6}}>MCO</div>
-            {['Jeu MCO 1','Jeu MCO 2','Jeu MCO 3'].map((label,i)=>(
+            {/* MCO Jeu 1 — actif */}
+            <div onClick={()=>setGameActive('mco1')} className="hov" style={{background:G.card,border:`1px solid ${G.accentHot}33`,borderRadius:13,padding:14,cursor:'pointer'}}>
+              <div style={{display:'flex',alignItems:'center',gap:11}}>
+                <div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${G.accentHot},#FF8FA3)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🧑‍💼</div>
+                <div style={{flex:1}}><div className="syne" style={{fontWeight:700,fontSize:14}}>RECRU-QUEST</div><div style={{color:G.muted,fontSize:12,marginTop:2}}>Management · Module MEC</div></div>
+                <div style={{background:G.accentGreen+'22',color:G.accentGreen,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>▶ Jouer</div>
+              </div>
+            </div>
+            {['Jeu MCO 2','Jeu MCO 3'].map((label,i)=>(
               <div key={i} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:14,opacity:.55}}>
                 <div style={{display:'flex',alignItems:'center',gap:11}}>
                   <div style={{width:44,height:44,borderRadius:11,background:G.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🔒</div>
@@ -2047,9 +2070,15 @@ function TeacherApp({onLogout}) {
         <div style={{position:'absolute',inset:0,zIndex:10,background:'#0a0a1a',display:'flex',flexDirection:'column'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'rgba(0,0,0,.5)',flexShrink:0}}>
             <button onClick={()=>setGameActive(false)} style={{background:'none',border:'none',color:'#fff',cursor:'pointer',fontSize:14,display:'flex',alignItems:'center',gap:4}}>← Quitter</button>
-            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>La quête du référencement</div>
+            <div style={{color:'#fff',fontSize:13,fontWeight:600}}>
+              {gameActive==='mco1'?'RECRU-QUEST':'La quête du référencement'}
+            </div>
           </div>
-          <iframe src="/game.html" style={{flex:1,width:'100%',border:'none',display:'block'}} title="Jeu"/>
+          <iframe
+            src={gameActive==='mco1'?'/game-mco1.html':'/game.html'}
+            style={{flex:1,width:'100%',border:'none',display:'block'}}
+            title="Jeu"
+          />
         </div>
       )}
       </div>
