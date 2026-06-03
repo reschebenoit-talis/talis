@@ -898,7 +898,7 @@ function drawWorld() {
   if(!W || !H) return;
   const p = PHASES[S.phase-1];
   const t = S.tick;
-  const col = PHASE_COLORS[S.phase-1];
+  const col = PHASE_COLORS[Math.min(Math.max(0,(S.phase||1)-1),PHASE_COLORS.length-1)];
 
   wCtx.clearRect(0,0,W,H);
 
@@ -935,7 +935,9 @@ function drawWorld() {
   // Horizon glow
   const hGlow = wCtx.createLinearGradient(0, horizon-20, 0, horizon+30);
   hGlow.addColorStop(0,'rgba(0,0,0,0)');
-  hGlow.addColorStop(0.5, col.replace('#',`rgba(`).replace(/(..)(..)(..)/, (_,r,g,b)=>`${parseInt(r,16)},${parseInt(g,16)},${parseInt(b,16)}`) + `,0.12)`);
+  // Safe color conversion: resolve CSS vars to hex first
+  const _resolveHex=(c)=>{if(c&&c.startsWith('#')&&c.length===7){const r=parseInt(c.slice(1,3),16),g=parseInt(c.slice(3,5),16),b=parseInt(c.slice(5,7),16);if(!isNaN(r)&&!isNaN(g)&&!isNaN(b))return`rgba(${r},${g},${b},0.12)`}return'rgba(0,245,255,0.12)'};
+  hGlow.addColorStop(0.5, _resolveHex(col));
   hGlow.addColorStop(1,'rgba(0,0,0,0)');
   wCtx.fillStyle = hGlow;
   wCtx.fillRect(0, horizon-20, W, 50);
@@ -1131,7 +1133,7 @@ const npcCtx = npcCanvas.getContext('2d');
 function drawNPCPortrait() {
   const W=npcCanvas.width, H=npcCanvas.height;
   npcCtx.clearRect(0,0,W,H);
-  const col = PHASE_COLORS[S.phase-1];
+  const col = PHASE_COLORS[Math.min(Math.max(0,(S.phase||1)-1),PHASE_COLORS.length-1)];
   const r2=parseInt(col.slice(1,3),16), g2=parseInt(col.slice(3,5),16), b2=parseInt(col.slice(5,7),16);
   
   // BG
@@ -1356,7 +1358,7 @@ function flashXP(amount, color) {
 //  CLAUDE API
 // ══════════════════════════════════════════
 async function callClaude(messages) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+  const resp = await fetch('/api/claude', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
