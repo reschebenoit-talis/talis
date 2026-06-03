@@ -1573,21 +1573,21 @@ function startPhaseIntro() {
 }
 
 function showRecap() {
-  const p = PHASES[S.phase-1];
   const shortKnowledge = [
     '📌 Diagnostiquez le besoin (charge ÷ productivité). Définissez le profil-personae : savoir-faire + savoir-être + motivations. 4 piliers : définition précise, cohérence stratégique, cadre légal, efficience. Annonce = Attirer + Refléter + Filtrer + Optimiser.',
     '📌 Identifiez la raison du recrutement, le poste et le profil. Organisez les ressources (qui, où, quels outils). Triez les CV en 3 étapes : lecture rapide → analyse détaillée → grille pondérée. Respectez la non-discrimination à chaque étape.',
-    '📌 3 types de questions : Ouvertes (s\'exprimer librement), Fermées (vérifier un point précis), Comportementales (situations vécues). Accueil = espace calme + script de 30min. Évaluation objective avec grille de critères pondérés.',
-    '📌 Coût d\'une démission < 3 mois : 3 000 à 8 000 €. 3 étapes : Pré-boarding (avant J) → Accueil Jour J (présentation formelle + équipe) → Suivi + montée en compétences. Objectif : sentiment d\'appartenance.'
+    "📌 3 types de questions : Ouvertes (s'exprimer librement), Fermées (vérifier un point précis), Comportementales (situations vécues). Accueil = espace calme + script de 30min. Evaluation objective avec grille de critères pondérés.",
+    "📌 Cout d'une démission < 3 mois : 3 000 à 8 000 €. 3 étapes : Pré-boarding (avant J) -> Accueil Jour J (présentation formelle + équipe) -> Suivi + montée en compétences. Objectif : sentiment d'appartenance."
   ];
-  // Save current challenge if there is one
   const savedChallenge = S.currentChallenge || null;
   setContent({
-    speaker:'📖 FICHE DE COURS — Phase '+S.phase, color:'#ffb800',
-    text: shortKnowledge[S.phase-1],
+    speaker:'FICHE DE COURS — Phase '+S.phase, color:'#ffb800',
+    text: shortKnowledge[S.phase-1] || shortKnowledge[0],
     options:[{
-      label: savedChallenge ? 'Reprendre le défi en cours' : 'Retour au défi',
-      fn: savedChallenge ? () => displayChallenge(savedChallenge) : generateChallenge
+      label: savedChallenge ? 'Reprendre le défi en cours' : 'Commencer le défi',
+      fn: savedChallenge
+        ? function(){ displayChallenge(savedChallenge); }
+        : function(){ generateChallenge(); }
     }]
   });
 }
