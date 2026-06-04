@@ -709,19 +709,29 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       <div className="app-scroll" style={{padding:16,flex:1}}>
 
         {tab==='home'&&!driveItem&&(
-          <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:13}}>
-            <div className="syne" style={{fontSize:18,fontWeight:800}}>Mon tableau de bord</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              <div onClick={()=>setTab('videos')} className="hov"><Stat icon="🎬" label="Vidéos" value={videos.length} color={G.accent}/></div>
-              <div onClick={()=>setTab('quiz')} className="hov"><Stat icon="🧠" label="Quiz faits" value={Object.keys(results).length} color={G.accentHot}/></div>
-              <div onClick={()=>setTab('fiches')} className="hov"><Stat icon="📄" label="Fiches" value={fiches.length} color={G.accentCyan}/></div>
-              <div onClick={()=>{setTab('msgs');setUnreadTeacher(0)}} className="hov"><Stat icon="💬" label="Non lus" value={unreadTeacher} color={G.gold}/></div>
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div>
+              <div className="syne" style={{fontSize:18,fontWeight:800}}>Bonjour, {student.first_name} 👋</div>
+              <div style={{color:G.muted,fontSize:13,marginTop:2}}>Que veux-tu faire aujourd'hui ?</div>
             </div>
-            {videos.slice(0,2).map(v=>(
-              <div key={v.id} onClick={()=>{setDriveItem(v);setTab('videos')}} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:13,padding:13,display:'flex',alignItems:'center',gap:11,cursor:'pointer'}}>
-                <div style={{fontSize:26}}>{v.emoji||'🎬'}</div>
-                <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{v.title}</div><div style={{color:G.muted,fontSize:11}}>{v.section} · {v.duration}</div></div>
-                <div style={{color:G.accent}}>▶</div>
+            {/* Grille de raccourcis */}
+            {[
+              {id:'videos', icon:'🎬', label:'Vidéos', sub:`${videos.length} vidéo${videos.length>1?'s':''}`, color:G.accent, hasNew:hasNew('videos',videos)},
+              {id:'fiches', icon:'📄', label:'Fiches', sub:`${fiches.length} fiche${fiches.length>1?'s':''}`, color:G.accentCyan, hasNew:hasNew('fiches',fiches)},
+              {id:'quiz',   icon:'🧠', label:'Quiz',   sub:`${quizzes.length} quiz`, color:G.accentHot, hasNew:hasNew('quiz',quizzes)},
+              {id:'devoirs',icon:'📋', label:'Devoirs', sub:`${assignments.length} devoir${assignments.length>1?'s':''}`, color:G.gold, hasNew:hasNew('devoirs',assignments)},
+              {id:'notes',  icon:'📝', label:'Mes notes', sub:`${grades.length} note${grades.length>1?'s':''}`, color:'#A78BFA', hasNew:false},
+              {id:'msgs',   icon:'💬', label:'Messages', sub:unreadTeacher>0?`${unreadTeacher} non lu${unreadTeacher>1?'s':''}`:'Aucun nouveau', color:G.accentGreen, hasNew:unreadTeacher>0},
+              ...((isNDRC||isMCO)?[{id:'game', icon:'🎮', label:'Jeux', sub:'Jeux pédagogiques', color:'#FB923C', hasNew:false}]:[]),
+            ].map(item=>(
+              <div key={item.id} onClick={()=>{setTab(item.id);markVisited(item.id);if(item.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}}} className="hov" style={{background:G.card,border:`1px solid ${item.color}33`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',position:'relative'}}>
+                {item.hasNew&&<div style={{position:'absolute',top:10,right:12,width:8,height:8,borderRadius:'50%',background:G.accentHot}}/>}
+                <div style={{width:46,height:46,borderRadius:12,background:`${item.color}22`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{item.icon}</div>
+                <div style={{flex:1}}>
+                  <div className="syne" style={{fontWeight:700,fontSize:14,color:item.color}}>{item.label}</div>
+                  <div style={{fontSize:12,color:G.muted,marginTop:2}}>{item.sub}</div>
+                </div>
+                <div style={{color:item.color,fontSize:16,opacity:.6}}>→</div>
               </div>
             ))}
           </div>
