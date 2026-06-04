@@ -492,6 +492,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [msgLoading,setMsgLoading]=useState(false)
   const [grades,setGrades]=useState([])
   const [studentNotesView,setStudentNotesView]=useState(null)
+  const [assignments,setAssignments]=useState([])
   const [gameActive,setGameActive]=useState(false)
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
   const [teacherTyping,setTeacherTyping]=useState(false)
@@ -618,6 +619,9 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       const classMax=allScores.length?Math.max(...allScores):null
       return {...g,score:gs.score,classAvg,classMin,classMax}
     }).filter(Boolean))
+    // Load assignments for student's class
+    const {data:asgData}=await supabase.from('assignment_classes').select('assignment_id,assignments(*)').eq('class_id',student.class_id)
+    setAssignments((asgData||[]).map(r=>r.assignments).filter(Boolean).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)))
     setLoading(false)
   }
 
@@ -672,7 +676,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const fullName=`${student.first_name} ${student.last_name}`
   const isNDRC=myClass&&myClass.name.toUpperCase().includes('NDRC')
   const isMCO=myClass&&myClass.name.toUpperCase().includes('MCO')
-  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'notes',icon:'📝',label:'Notes'},...(isNDRC||isMCO?[{id:'game',icon:'🎮',label:'Jeu'}]:[]),({id:'msgs',icon:'💬',label:'Messages'})]
+  const tabs=[{id:'home',icon:'⚡',label:'Accueil'},{id:'videos',icon:'🎬',label:'Vidéos'},{id:'fiches',icon:'📄',label:'Fiches'},{id:'quiz',icon:'🧠',label:'Quiz'},{id:'devoirs',icon:'📋',label:'Devoirs'},{id:'notes',icon:'📝',label:'Notes'},...(isNDRC||isMCO?[{id:'game',icon:'🎮',label:'Jeu'}]:[]),({id:'msgs',icon:'💬',label:'Messages'})]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:14,background:G.bg}}><Spinner/><div style={{color:G.muted,fontSize:13}}>Chargement…</div></div>
 
@@ -884,6 +888,47 @@ function StudentApp({student,onLogout,onPwdSaved}) {
                 })()}
               </>
             )}
+          </div>
+        )}
+
+        {tab==='devoirs'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:12}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>📋 Mes devoirs</div>
+            {!assignments.length&&(
+              <div style={{color:G.muted,fontSize:13,textAlign:'center',marginTop:32}}>
+                <div style={{fontSize:40,marginBottom:12}}>📭</div>
+                Aucun devoir pour l'instant.
+              </div>
+            )}
+            {assignments.map(a=>{
+              const isLate=a.due_date&&new Date(a.due_date)<new Date()
+              const isUrgent=a.due_date&&!isLate&&(new Date(a.due_date)-new Date())<3*24*60*60*1000
+              const borderColor=isLate?G.accentHot:isUrgent?G.gold:G.accentCyan
+              return (
+                <div key={a.id} style={{background:G.card,border:`1px solid ${borderColor}33`,borderRadius:14,padding:16,borderLeft:`3px solid ${borderColor}`}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:borderColor+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📋</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div className="syne" style={{fontWeight:700,fontSize:14,marginBottom:2}}>{a.title}</div>
+                      {a.due_date&&(
+                        <div style={{fontSize:11,fontWeight:600,color:isLate?G.accentHot:isUrgent?G.gold:G.accentCyan}}>
+                          {isLate?'⏰ Expiré le ':isUrgent?'⚡ À rendre avant le ':'📅 À rendre pour le '}
+                          {new Date(a.due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {a.instructions&&(
+                    <div style={{background:G.surface,borderRadius:10,padding:'10px 13px',fontSize:13,color:G.text,lineHeight:1.65,whiteSpace:'pre-wrap'}}>
+                      {a.instructions}
+                    </div>
+                  )}
+                  <div style={{fontSize:11,color:G.muted,marginTop:8}}>
+                    Diffusé le {new Date(a.created_at).toLocaleDateString('fr-FR')}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -1200,6 +1245,8 @@ function TeacherApp({onLogout}) {
   const [presence,setPresence]=useState({})
   const [grades,setGrades]=useState([]) // [{id,title,coefficient,classIds,scores:{studentId:note}}]
   const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}})
+  const [assignments,setAssignments]=useState([])
+  const [assignForm,setAssignForm]=useState({title:'',instructions:'',due_date:'',classIds:[]})
   const [editingGrade,setEditingGrade]=useState(null) // grade being edited
   const [notesView,setNotesView]=useState(null) // null=overview, 'list'=all grades, gradeId=detail
   const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
@@ -1299,6 +1346,9 @@ function TeacherApp({onLogout}) {
         scores:Object.fromEntries((g.grade_scores||[]).map(s=>[s.student_id,s.score]))
       })))
     }
+    // Load assignments
+    const {data:asgData}=await supabase.from('assignments').select('*,assignment_classes(class_id)').order('created_at',{ascending:false})
+    if(asgData) setAssignments(asgData.map(a=>({...a,classIds:(a.assignment_classes||[]).map(ac=>ac.class_id)})))
     setLoading(false)
   }
 
@@ -1392,6 +1442,25 @@ function TeacherApp({onLogout}) {
     if(type==='quiz')  setQuizzes(q=>q.filter(x=>x.id!==id))
   }
 
+  const addAssignment=async()=>{
+    if(!assignForm.title||!assignForm.classIds.length) return
+    setSaving(true)
+    const {data:a}=await supabase.from('assignments').insert({title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null}).select().single()
+    if(a){
+      await supabase.from('assignment_classes').insert(assignForm.classIds.map(cid=>({assignment_id:a.id,class_id:cid})))
+      setAssignments(prev=>[{...a,classIds:assignForm.classIds},...prev])
+      setAssignForm({title:'',instructions:'',due_date:'',classIds:[]})
+      alert('✅ Devoir diffusé !')
+    }
+    setSaving(false)
+  }
+
+  const deleteAssignment=async(id)=>{
+    if(!confirm('Supprimer ce devoir ?')) return
+    await supabase.from('assignments').delete().eq('id',id)
+    setAssignments(prev=>prev.filter(a=>a.id!==id))
+  }
+
   const deleteStudent=async(id)=>{
     if(!confirm('Supprimer cet élève ?')) return
     await supabase.from('students').delete().eq('id',id)
@@ -1438,7 +1507,7 @@ function TeacherApp({onLogout}) {
     return (msgs[sid]||[]).filter(m=>m.from_role==='student'&&new Date(m.sent_at)>new Date(lastRead)).length
   }
   const totalUnread=students.reduce((a,s)=>a+countUnread(s.id),0)
-  const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'notes',icon:'📝',label:'Notes'},{id:'game',icon:'🎮',label:'Jeu'},{id:'add',icon:'➕',label:'Ajouter'}]
+  const tabs=[{id:'dashboard',icon:'📊',label:'Stats'},{id:'students',icon:'👥',label:'Élèves'},{id:'msgs',icon:'💬',label:'Messages'},{id:'content',icon:'📚',label:'Contenu'},{id:'devoirs',icon:'📋',label:'Devoirs'},{id:'notes',icon:'📝',label:'Notes'},{id:'game',icon:'🎮',label:'Jeu'},{id:'add',icon:'➕',label:'Ajouter'}]
 
   if(loading) return <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',background:G.bg}}><Spinner/></div>
 
@@ -1912,6 +1981,60 @@ function TeacherApp({onLogout}) {
                 </>
               )
             })()}
+          </div>
+        )}
+
+
+
+        {/* DEVOIRS - PROF */}
+        {tab==='devoirs'&&(
+          <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div className="syne" style={{fontSize:18,fontWeight:800}}>📋 Devoirs diffusés</div>
+
+            {/* Formulaire nouveau devoir */}
+            <div style={{background:G.card,border:`1px solid ${G.accentHot}33`,borderRadius:15,padding:16}}>
+              <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accentHot,fontSize:13}}>➕ Nouveau devoir</div>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <Inp placeholder="Titre du devoir *" value={assignForm.title} onChange={e=>setAssignForm({...assignForm,title:e.target.value})}/>
+                <Inp placeholder="Consignes (description, étapes, ressources…)" multi rows={5} value={assignForm.instructions} onChange={e=>setAssignForm({...assignForm,instructions:e.target.value})}/>
+                <div>
+                  <div style={{fontSize:12,color:G.muted,marginBottom:5}}>Date de rendu (optionnel)</div>
+                  <input type="date" value={assignForm.due_date} onChange={e=>setAssignForm({...assignForm,due_date:e.target.value})} style={{background:G.surface,border:`1px solid ${G.border}`,borderRadius:10,color:G.text,fontSize:14,padding:'10px 14px',width:'100%',outline:'none'}}/>
+                </div>
+                <div style={{fontSize:12,color:G.muted}}>Diffuser à :</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                  {classes.map(c=>(
+                    <div key={c.id} onClick={()=>setAssignForm(f=>({...f,classIds:f.classIds.includes(c.id)?f.classIds.filter(x=>x!==c.id):[...f.classIds,c.id]}))} style={{background:assignForm.classIds.includes(c.id)?c.color+'33':G.surface,border:`1px solid ${assignForm.classIds.includes(c.id)?c.color:G.border}`,borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:12,color:assignForm.classIds.includes(c.id)?c.color:G.muted,transition:'all .14s'}}>
+                      {c.name}
+                    </div>
+                  ))}
+                </div>
+                <Btn v="hot" onClick={addAssignment} disabled={!assignForm.title||!assignForm.classIds.length} loading={saving}>📤 Diffuser</Btn>
+              </div>
+            </div>
+
+            {/* Liste des devoirs */}
+            {!assignments.length&&<div style={{color:G.muted,fontSize:13,textAlign:'center',marginTop:16}}>Aucun devoir diffusé pour l'instant.</div>}
+            {assignments.map(a=>{
+              const targetClasses=classes.filter(c=>a.classIds.includes(c.id))
+              const isLate=a.due_date&&new Date(a.due_date)<new Date()
+              return (
+                <div key={a.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:14}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                    <div style={{width:38,height:38,borderRadius:10,background:G.accentHot+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📋</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{a.title}</div>
+                      {a.due_date&&<div style={{fontSize:11,color:isLate?G.accentHot:G.gold,marginBottom:6}}>📅 Rendu : {new Date(a.due_date).toLocaleDateString('fr-FR')}{isLate?' — expiré':''}</div>}
+                      {a.instructions&&<div style={{fontSize:12,color:G.muted,marginBottom:8,whiteSpace:'pre-wrap',lineHeight:1.6}}>{a.instructions}</div>}
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                        {targetClasses.map(c=><Bdg key={c.id} color={c.color} sm>{c.name}</Bdg>)}
+                      </div>
+                    </div>
+                    <button onClick={()=>deleteAssignment(a.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14,flexShrink:0}}>🗑</button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
