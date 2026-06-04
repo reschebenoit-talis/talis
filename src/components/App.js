@@ -497,6 +497,17 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
   const [teacherTyping,setTeacherTyping]=useState(false)
   const [isTypingToTeacher,setIsTypingToTeacher]=useState(false)
+  // Dates de dernière visite par onglet, persistées en localStorage
+  const [lastVisited,setLastVisited]=useState(()=>{ try{ return JSON.parse(localStorage.getItem('talis_visited_'+student.id)||'{}') }catch{ return {} } })
+  const markVisited=(tabId)=>{
+    const now=new Date().toISOString()
+    setLastVisited(prev=>{ const next={...prev,[tabId]:now}; try{localStorage.setItem('talis_visited_'+student.id,JSON.stringify(next))}catch{}; return next })
+  }
+  const hasNew=(tabId,items)=>{
+    const lv=lastVisited[tabId]
+    if(!lv) return items.length>0
+    return items.some(i=>i.created_at&&new Date(i.created_at)>new Date(lv))
+  }
 
   useEffect(()=>{
     loadAll()
@@ -1125,10 +1136,15 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       </div>
       <div className="app-nav" style={{display:'flex',background:G.surface,borderTop:`1px solid ${G.border}`,padding:'8px 2px 10px'}}>
         {tabs.map(t=>(
-          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false);if(t.id!=='videos'&&t.id!=='fiches'&&t.id!=='quiz'){setActiveModule(null);setActiveSection(null)}}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
+          <div key={t.id} onClick={()=>{setTab(t.id);setDriveItem(null);if(t.id!=='quiz'){setActiveQuiz(null);setQState(null)}if(t.id==='msgs'){setUnreadTeacher(0);try{localStorage.setItem('talis_unread_'+student.id,'0')}catch{}}if(t.id!=='notes')setStudentNotesView(null);if(t.id!=='game')setGameActive(false);if(t.id!=='videos'&&t.id!=='fiches'&&t.id!=='quiz'){setActiveModule(null);setActiveSection(null)};markVisited(t.id)}} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2,cursor:'pointer',position:'relative'}}>
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='videos'&&tab!=='videos'&&hasNew('videos',videos)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='fiches'&&tab!=='fiches'&&hasNew('fiches',fiches)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='quiz'&&tab!=='quiz'&&hasNew('quiz',quizzes)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='devoirs'&&tab!=='devoirs'&&hasNew('devoirs',assignments)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='game'&&tab!=='game'&&hasNew('game',[...videos,...fiches,...quizzes].filter(x=>x.created_at))&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {tab===t.id&&<div style={{position:'absolute',bottom:-9,width:16,height:2,background:G.accent,borderRadius:2}}/>}
           </div>
         ))}
