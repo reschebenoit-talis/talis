@@ -689,6 +689,189 @@ body::after {
   box-shadow: 0 0 5px var(--green);
   animation: pulse 2s infinite;
 }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE MOBILE
+═══════════════════════════════════════ */
+@media (max-width: 640px) {
+
+  /* ── Header compact ── */
+  #header {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .logo {
+    font-size: 15px;
+    letter-spacing: 1.5px;
+  }
+
+  .header-right {
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
+  }
+
+  .stat-chip {
+    padding: 4px 8px;
+    gap: 5px;
+  }
+
+  .stat-chip .label { font-size: 8px; letter-spacing: 1px; }
+  .stat-chip .value { font-size: 13px; }
+  .mini-bar { width: 40px; }
+
+  /* ── Layout : colonne unique, sidebar en bas ── */
+  #main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    min-height: unset;
+  }
+
+  /* Sidebar passe en bas, horizontale et compacte */
+  #sidebar {
+    border-right: none;
+    border-top: 1px solid rgba(0,245,255,0.1);
+    padding: 12px 0 4px;
+    order: 2;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+  }
+
+  /* Portrait NPC : petit carré à gauche */
+  #npc-portrait-container {
+    padding: 0 12px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+    width: 90px;
+  }
+
+  #npc-canvas {
+    width: 70px;
+    height: 70px;
+  }
+
+  .npc-nameplate { font-size: 7px; letter-spacing: 1px; }
+  .npc-role { font-size: 9px; }
+
+  /* Section carte de progression */
+  .sidebar-section {
+    padding: 0 12px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .sidebar-label {
+    font-size: 8px;
+    margin-bottom: 6px;
+  }
+
+  /* Phase map horizontal */
+  #phase-map {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .phase-node {
+    padding: 5px 8px;
+    gap: 6px;
+  }
+
+  .phase-num { font-size: 8px; }
+  .phase-name { font-size: 10px; }
+
+  .phase-connector {
+    height: 5px;
+    margin: 0 0 0 18px;
+  }
+
+  /* Bouton fiche de cours inline */
+  .sidebar-section .opt-btn {
+    font-size: 12px !important;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+
+  .challenges-meter { margin-top: 5px; }
+  .ch-pip { width: 14px; }
+
+  /* ── Content : passe en premier ── */
+  #content { order: 1; }
+
+  /* ── World view : réduit ── */
+  #world-view { height: 140px; }
+
+  .room-label { font-size: 8px; letter-spacing: 2px; top: 10px; left: 12px; }
+
+  /* ── Dialogue area ── */
+  #dialogue-area {
+    padding: 14px 14px 16px;
+    gap: 10px;
+  }
+
+  .speaker-name { font-size: 9px; letter-spacing: 1.5px; }
+
+  .dialogue-box {
+    font-size: 17px;
+    padding: 12px 14px;
+    min-height: 60px;
+  }
+
+  /* ── Boutons réponses ── */
+  .opt-btn {
+    font-size: 16px;
+    padding: 11px 14px;
+    gap: 8px;
+    /* Désactive le translateX sur mobile (pas de hover tactile) */
+    transform: none !important;
+  }
+
+  .opt-btn:active {
+    background: rgba(0,245,255,0.06);
+    border-color: rgba(0,245,255,0.35);
+  }
+
+  .opt-letter { font-size: 9px; width: 16px; }
+
+  .opt-btn.action { font-size: 13px; }
+
+  /* ── Textarea réponse libre ── */
+  .free-textarea { font-size: 16px; min-height: 90px; }
+
+  .send-btn {
+    width: 100%;
+    text-align: center;
+    font-size: 9px;
+  }
+
+  /* ── Modal ── */
+  .modal-box {
+    padding: 20px 18px;
+    width: 95%;
+  }
+
+  .modal-title { font-size: 13px; letter-spacing: 2px; }
+  .modal-body { font-size: 17px; }
+
+  /* ── Status bar ── */
+  #status-bar {
+    padding: 0 12px;
+    font-size: 9px;
+    gap: 10px;
+    height: 24px;
+  }
+
+  /* ── XP flash ── */
+  #xp-flash { right: 12px; top: 60px; font-size: 12px; }
+
+  /* ── Pips défis ── */
+  #app { padding-bottom: 20px; }
+}
 </style>
 </head>
 <body>
