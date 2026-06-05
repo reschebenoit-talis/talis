@@ -494,6 +494,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [studentNotesView,setStudentNotesView]=useState(null)
   const [assignments,setAssignments]=useState([])
   const [completions,setCompletions]=useState(new Set())
+  const [assignViewer,setAssignViewer]=useState(null) // {url, name}
   const [gameActive,setGameActive]=useState(false)
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
   const [teacherTyping,setTeacherTyping]=useState(false)
@@ -954,6 +955,13 @@ function StudentApp({student,onLogout,onPwdSaved}) {
                       {a.instructions}
                     </div>
                   )}
+                  {a.doc_url&&(
+                    <a href={a.doc_url} download={a.doc_name||'document'} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:7,background:G.surface,border:`1px solid ${G.border}`,borderRadius:9,padding:'7px 13px',fontSize:12,color:G.text,textDecoration:'none',marginBottom:10,maxWidth:'100%'}}>
+                      <span style={{fontSize:16,flexShrink:0}}>{fileIcon(a.doc_name)}</span>
+                      <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{a.doc_name||'Document joint'}</span>
+                      <span style={{color:G.accentCyan,flexShrink:0,fontSize:13}}>⬇</span>
+                    </a>
+                  )}
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4}}>
                     <div style={{fontSize:11,color:G.muted}}>Diffusé le {new Date(a.created_at).toLocaleDateString('fr-FR')}</div>
                     <button onClick={async()=>{
@@ -1293,8 +1301,9 @@ function TeacherApp({onLogout}) {
   const [grades,setGrades]=useState([]) // [{id,title,coefficient,classIds,scores:{studentId:note}}]
   const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}})
   const [assignments,setAssignments]=useState([])
-  const [assignForm,setAssignForm]=useState({title:'',instructions:'',due_date:'',classIds:[]})
+  const [assignForm,setAssignForm]=useState({title:'',instructions:'',due_date:'',classIds:[],doc_url:'',doc_name:''})
   const [editingAssign,setEditingAssign]=useState(null)
+  const [assignDocUploading,setAssignDocUploading]=useState(false)
   const [editingGrade,setEditingGrade]=useState(null) // grade being edited
   const [notesView,setNotesView]=useState(null) // null=overview, 'list'=all grades, gradeId=detail
   const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
@@ -1493,21 +1502,21 @@ function TeacherApp({onLogout}) {
   const addAssignment=async()=>{
     if(!assignForm.title||!assignForm.classIds.length) return
     setSaving(true)
+    const payload={title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null,doc_url:assignForm.doc_url||null,doc_name:assignForm.doc_name||null}
     if(editingAssign){
-      // Mode édition
-      await supabase.from('assignments').update({title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null}).eq('id',editingAssign)
+      await supabase.from('assignments').update(payload).eq('id',editingAssign)
       await supabase.from('assignment_classes').delete().eq('assignment_id',editingAssign)
       await supabase.from('assignment_classes').insert(assignForm.classIds.map(cid=>({assignment_id:editingAssign,class_id:cid})))
-      setAssignments(prev=>prev.map(a=>a.id===editingAssign?{...a,title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null,classIds:assignForm.classIds}:a))
+      setAssignments(prev=>prev.map(a=>a.id===editingAssign?{...a,...payload,classIds:assignForm.classIds}:a))
       setEditingAssign(null)
-      setAssignForm({title:'',instructions:'',due_date:'',classIds:[]})
+      setAssignForm({title:'',instructions:'',due_date:'',classIds:[],doc_url:'',doc_name:''})
       alert('✅ Devoir mis à jour !')
     } else {
-      const {data:a}=await supabase.from('assignments').insert({title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null}).select().single()
+      const {data:a}=await supabase.from('assignments').insert(payload).select().single()
       if(a){
         await supabase.from('assignment_classes').insert(assignForm.classIds.map(cid=>({assignment_id:a.id,class_id:cid})))
         setAssignments(prev=>[{...a,classIds:assignForm.classIds,completions:[]},...prev])
-        setAssignForm({title:'',instructions:'',due_date:'',classIds:[]})
+        setAssignForm({title:'',instructions:'',due_date:'',classIds:[],doc_url:'',doc_name:''})
         alert('✅ Devoir diffusé !')
       }
     }
@@ -2071,7 +2080,32 @@ function TeacherApp({onLogout}) {
                     </div>
                   ))}
                 </div>
-                <Btn v={editingAssign?'primary':'hot'} onClick={addAssignment} disabled={!assignForm.title||!assignForm.classIds.length} loading={saving}>{editingAssign?'💾 Enregistrer':'📤 Diffuser'}</Btn>
+                {/* Zone document */}
+                <div style={{background:G.surface,border:`1px dashed ${assignForm.doc_url?G.accentGreen:G.border}`,borderRadius:10,padding:'12px 14px'}}>
+                  <div style={{fontSize:12,color:G.muted,marginBottom:8}}>📎 Document joint (optionnel)</div>
+                  {assignForm.doc_url?(
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{flex:1,fontSize:13,color:G.accentGreen,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>✅ {assignForm.doc_name||'Document'}</div>
+                      <button onClick={()=>setAssignForm(f=>({...f,doc_url:'',doc_name:''}))} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:13,flexShrink:0}}>✕ Retirer</button>
+                    </div>
+                  ):(
+                    <label style={{display:'flex',alignItems:'center',gap:8,cursor:assignDocUploading?'wait':'pointer'}}>
+                      <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png" style={{display:'none'}} disabled={assignDocUploading} onChange={async e=>{
+                        const file=e.target.files?.[0]; if(!file) return
+                        setAssignDocUploading(true)
+                        const res=await uploadFile(file)
+                        if(res) setAssignForm(f=>({...f,doc_url:res.url,doc_name:res.name}))
+                        setAssignDocUploading(false)
+                        e.target.value=''
+                      }}/>
+                      <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:8,padding:'7px 14px',fontSize:12,color:G.muted,display:'flex',alignItems:'center',gap:6}}>
+                        {assignDocUploading?<><span style={{width:12,height:12,border:`2px solid ${G.border}`,borderTop:`2px solid ${G.accent}`,borderRadius:'50%',animation:'spin 1s linear infinite',display:'inline-block'}}/>Envoi en cours…</>:<>📤 Choisir un fichier</>}
+                      </div>
+                      <span style={{fontSize:11,color:G.muted}}>PDF, Word, PowerPoint, image…</span>
+                    </label>
+                  )}
+                </div>
+                <Btn v={editingAssign?'primary':'hot'} onClick={addAssignment} disabled={!assignForm.title||!assignForm.classIds.length||assignDocUploading} loading={saving}>{editingAssign?'💾 Enregistrer':'📤 Diffuser'}</Btn>
               </div>
             </div>
 
@@ -2096,6 +2130,7 @@ function TeacherApp({onLogout}) {
                       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
                         {targetClasses.map(c=><Bdg key={c.id} color={c.color} sm>{c.name}</Bdg>)}
                       </div>
+                      {a.doc_url&&<a href={a.doc_url} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,background:G.surface,border:`1px solid ${G.border}`,borderRadius:8,padding:'5px 11px',fontSize:12,color:G.accentCyan,textDecoration:'none',marginBottom:8}}>📎 {a.doc_name||'Document joint'}</a>}
                       {/* Barre de progression validations */}
                       {total>0&&<>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
@@ -2109,7 +2144,7 @@ function TeacherApp({onLogout}) {
                       </>}
                     </div>
                     <div style={{display:'flex',flexDirection:'column',gap:5,flexShrink:0}}>
-                      <button onClick={()=>{setEditingAssign(a.id);setAssignForm({title:a.title,instructions:a.instructions||'',due_date:a.due_date||'',classIds:a.classIds});window.scrollTo({top:0,behavior:'smooth'})}} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:15}}>✏️</button>
+                      <button onClick={()=>{setEditingAssign(a.id);setAssignForm({title:a.title,instructions:a.instructions||'',due_date:a.due_date||'',classIds:a.classIds,doc_url:a.doc_url||'',doc_name:a.doc_name||''});window.scrollTo({top:0,behavior:'smooth'})}} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:15}}>✏️</button>
                       <button onClick={()=>deleteAssignment(a.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:15}}>🗑</button>
                     </div>
                   </div>
