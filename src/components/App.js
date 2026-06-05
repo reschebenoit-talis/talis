@@ -552,6 +552,15 @@ function StudentApp({student,onLogout,onPwdSaved}) {
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'quiz_classes',filter:'class_id=eq.'+student.class_id},
         async()=>{ const {data:qRes}=await supabase.from('quiz_classes').select('quiz_id,quizzes(*,quiz_questions(*))').eq('class_id',student.class_id); setQuizzes((qRes||[]).map(r=>r.quizzes).filter(Boolean)) })
       .subscribe()
+    // Realtime: new assignments for my class
+    const asgSub=supabase.channel('student-asg-'+student.id)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'assignment_classes',filter:'class_id=eq.'+student.class_id},
+        async()=>{
+          const {data:asgData}=await supabase.from('assignment_classes').select('assignment_id,assignments(*)').eq('class_id',student.class_id)
+          const asgList=(asgData||[]).map(r=>r.assignments).filter(Boolean).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
+          setAssignments(asgList)
+        })
+      .subscribe()
     // Presence: use broadcast channel for instant updates + DB for persistence
     const presenceCh=supabase.channel('presence-global')
     presenceCh.on('presence',{event:'sync'},()=>{}).subscribe(async(status)=>{
@@ -592,7 +601,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     }
 
     return ()=>{
-      msgSub.unsubscribe(); readSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe()
+      msgSub.unsubscribe(); readSub.unsubscribe(); vidSub.unsubscribe(); ficSub.unsubscribe(); quizSub.unsubscribe(); asgSub.unsubscribe()
       typingCh.unsubscribe(); presenceCh.unsubscribe(); clearInterval(heartbeat)
       window.removeEventListener('beforeunload',markOffline); markOffline()
       window._typingCb=null
@@ -1179,11 +1188,12 @@ function StudentApp({student,onLogout,onPwdSaved}) {
             <div style={{fontSize:18,filter:tab===t.id?'none':'grayscale(1) opacity(.4)',transition:'filter .16s'}}>{t.icon}</div>
             <div style={{fontSize:9,color:tab===t.id?G.accent:G.muted,fontWeight:tab===t.id?600:400}}>{t.label}</div>
             {t.id==='msgs'&&unreadTeacher>0&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='home'&&tab!=='home'&&(hasNew('videos',videos)||hasNew('fiches',fiches)||hasNew('quiz',quizzes)||hasNew('devoirs',assignments)||unreadTeacher>0)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {t.id==='videos'&&tab!=='videos'&&hasNew('videos',videos)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {t.id==='fiches'&&tab!=='fiches'&&hasNew('fiches',fiches)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {t.id==='quiz'&&tab!=='quiz'&&hasNew('quiz',quizzes)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {t.id==='devoirs'&&tab!=='devoirs'&&hasNew('devoirs',assignments)&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
-            {t.id==='game'&&tab!=='game'&&hasNew('game',[...videos,...fiches,...quizzes].filter(x=>x.created_at))&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
+            {t.id==='game'&&tab!=='game'&&hasNew('game',[...videos,...fiches,...quizzes])&&<div style={{position:'absolute',top:0,right:'18%',width:7,height:7,borderRadius:'50%',background:G.accentHot}}/>}
             {tab===t.id&&<div style={{position:'absolute',bottom:-9,width:16,height:2,background:G.accent,borderRadius:2}}/>}
           </div>
         ))}
