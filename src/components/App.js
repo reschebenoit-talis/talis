@@ -493,6 +493,7 @@ function StudentApp({student,onLogout,onPwdSaved}) {
   const [grades,setGrades]=useState([])
   const [studentNotesView,setStudentNotesView]=useState(null)
   const [assignments,setAssignments]=useState([])
+  const [completions,setCompletions]=useState(new Set())
   const [gameActive,setGameActive]=useState(false)
   const [unreadTeacher,setUnreadTeacher]=useState(()=>{ try{ const k='talis_unread_'+student.id; return parseInt(localStorage.getItem(k)||'0') }catch{ return 0 } })
   const [teacherTyping,setTeacherTyping]=useState(false)
@@ -632,7 +633,14 @@ function StudentApp({student,onLogout,onPwdSaved}) {
     }).filter(Boolean))
     // Load assignments for student's class
     const {data:asgData}=await supabase.from('assignment_classes').select('assignment_id,assignments(*)').eq('class_id',student.class_id)
-    setAssignments((asgData||[]).map(r=>r.assignments).filter(Boolean).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)))
+    const asgList=(asgData||[]).map(r=>r.assignments).filter(Boolean).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))
+    setAssignments(asgList)
+    // Load completions for this student
+    if(asgList.length){
+      const asgIds=asgList.map(a=>a.id)
+      const {data:compData}=await supabase.from('assignment_completions').select('assignment_id').eq('student_id',student.id).in('assignment_id',asgIds)
+      setCompletions(new Set((compData||[]).map(c=>c.assignment_id)))
+    }
     setLoading(false)
   }
 
@@ -922,30 +930,43 @@ function StudentApp({student,onLogout,onPwdSaved}) {
               </div>
             )}
             {assignments.map(a=>{
+              const done=completions.has(a.id)
               const isLate=a.due_date&&new Date(a.due_date)<new Date()
               const isUrgent=a.due_date&&!isLate&&(new Date(a.due_date)-new Date())<3*24*60*60*1000
-              const borderColor=isLate?G.accentHot:isUrgent?G.gold:G.accentCyan
+              const borderColor=done?G.accentGreen:isLate?G.accentHot:isUrgent?G.gold:G.accentCyan
               return (
                 <div key={a.id} style={{background:G.card,border:`1px solid ${borderColor}33`,borderRadius:14,padding:16,borderLeft:`3px solid ${borderColor}`}}>
                   <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
-                    <div style={{width:36,height:36,borderRadius:10,background:borderColor+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📋</div>
+                    <div style={{width:36,height:36,borderRadius:10,background:borderColor+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>{done?'✅':'📋'}</div>
                     <div style={{flex:1,minWidth:0}}>
-                      <div className="syne" style={{fontWeight:700,fontSize:14,marginBottom:2}}>{a.title}</div>
+                      <div className="syne" style={{fontWeight:700,fontSize:14,marginBottom:2,textDecoration:done?'line-through':'none',color:done?G.muted:G.text}}>{a.title}</div>
                       {a.due_date&&(
-                        <div style={{fontSize:11,fontWeight:600,color:isLate?G.accentHot:isUrgent?G.gold:G.accentCyan}}>
-                          {isLate?'⏰ Expiré le ':isUrgent?'⚡ À rendre avant le ':'📅 À rendre pour le '}
+                        <div style={{fontSize:11,fontWeight:600,color:done?G.accentGreen:isLate?G.accentHot:isUrgent?G.gold:G.accentCyan}}>
+                          {done?'✓ Rendu ': isLate?'⏰ Expiré le ':isUrgent?'⚡ À rendre avant le ':'📅 À rendre pour le '}
                           {new Date(a.due_date).toLocaleDateString('fr-FR',{day:'2-digit',month:'long',year:'numeric'})}
                         </div>
                       )}
+                      {!a.due_date&&done&&<div style={{fontSize:11,color:G.accentGreen,fontWeight:600}}>✓ Marqué comme fait</div>}
                     </div>
                   </div>
                   {a.instructions&&(
-                    <div style={{background:G.surface,borderRadius:10,padding:'10px 13px',fontSize:13,color:G.text,lineHeight:1.65,whiteSpace:'pre-wrap'}}>
+                    <div style={{background:G.surface,borderRadius:10,padding:'10px 13px',fontSize:13,color:G.text,lineHeight:1.65,whiteSpace:'pre-wrap',marginBottom:10}}>
                       {a.instructions}
                     </div>
                   )}
-                  <div style={{fontSize:11,color:G.muted,marginTop:8}}>
-                    Diffusé le {new Date(a.created_at).toLocaleDateString('fr-FR')}
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:4}}>
+                    <div style={{fontSize:11,color:G.muted}}>Diffusé le {new Date(a.created_at).toLocaleDateString('fr-FR')}</div>
+                    <button onClick={async()=>{
+                      if(done){
+                        await supabase.from('assignment_completions').delete().eq('student_id',student.id).eq('assignment_id',a.id)
+                        setCompletions(prev=>{const n=new Set(prev);n.delete(a.id);return n})
+                      } else {
+                        await supabase.from('assignment_completions').upsert({student_id:student.id,assignment_id:a.id,completed_at:new Date().toISOString()},{onConflict:'student_id,assignment_id'})
+                        setCompletions(prev=>new Set([...prev,a.id]))
+                      }
+                    }} style={{background:done?G.surface:G.accentGreen+'22',border:`1px solid ${done?G.border:G.accentGreen}`,borderRadius:8,padding:'5px 12px',cursor:'pointer',fontSize:12,color:done?G.muted:G.accentGreen,fontWeight:600,transition:'all .14s'}}>
+                      {done?'↩️ Annuler':'✅ Marquer comme fait'}
+                    </button>
                   </div>
                 </div>
               )
@@ -1273,6 +1294,7 @@ function TeacherApp({onLogout}) {
   const [gradeForm,setGradeForm]=useState({title:'',coefficient:1,classIds:[],scores:{}})
   const [assignments,setAssignments]=useState([])
   const [assignForm,setAssignForm]=useState({title:'',instructions:'',due_date:'',classIds:[]})
+  const [editingAssign,setEditingAssign]=useState(null)
   const [editingGrade,setEditingGrade]=useState(null) // grade being edited
   const [notesView,setNotesView]=useState(null) // null=overview, 'list'=all grades, gradeId=detail
   const [studentTyping,setStudentTyping]=useState({}) // {studentId: bool}
@@ -1373,8 +1395,8 @@ function TeacherApp({onLogout}) {
       })))
     }
     // Load assignments
-    const {data:asgData}=await supabase.from('assignments').select('*,assignment_classes(class_id)').order('created_at',{ascending:false})
-    if(asgData) setAssignments(asgData.map(a=>({...a,classIds:(a.assignment_classes||[]).map(ac=>ac.class_id)})))
+    const {data:asgData}=await supabase.from('assignments').select('*,assignment_classes(class_id),assignment_completions(student_id,students(first_name,last_name))').order('created_at',{ascending:false})
+    if(asgData) setAssignments(asgData.map(a=>({...a,classIds:(a.assignment_classes||[]).map(ac=>ac.class_id),completions:(a.assignment_completions||[]).map(c=>c.students).filter(Boolean)})))
     setLoading(false)
   }
 
@@ -1471,12 +1493,23 @@ function TeacherApp({onLogout}) {
   const addAssignment=async()=>{
     if(!assignForm.title||!assignForm.classIds.length) return
     setSaving(true)
-    const {data:a}=await supabase.from('assignments').insert({title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null}).select().single()
-    if(a){
-      await supabase.from('assignment_classes').insert(assignForm.classIds.map(cid=>({assignment_id:a.id,class_id:cid})))
-      setAssignments(prev=>[{...a,classIds:assignForm.classIds},...prev])
+    if(editingAssign){
+      // Mode édition
+      await supabase.from('assignments').update({title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null}).eq('id',editingAssign)
+      await supabase.from('assignment_classes').delete().eq('assignment_id',editingAssign)
+      await supabase.from('assignment_classes').insert(assignForm.classIds.map(cid=>({assignment_id:editingAssign,class_id:cid})))
+      setAssignments(prev=>prev.map(a=>a.id===editingAssign?{...a,title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null,classIds:assignForm.classIds}:a))
+      setEditingAssign(null)
       setAssignForm({title:'',instructions:'',due_date:'',classIds:[]})
-      alert('✅ Devoir diffusé !')
+      alert('✅ Devoir mis à jour !')
+    } else {
+      const {data:a}=await supabase.from('assignments').insert({title:assignForm.title,instructions:assignForm.instructions||'',due_date:assignForm.due_date||null}).select().single()
+      if(a){
+        await supabase.from('assignment_classes').insert(assignForm.classIds.map(cid=>({assignment_id:a.id,class_id:cid})))
+        setAssignments(prev=>[{...a,classIds:assignForm.classIds,completions:[]},...prev])
+        setAssignForm({title:'',instructions:'',due_date:'',classIds:[]})
+        alert('✅ Devoir diffusé !')
+      }
     }
     setSaving(false)
   }
@@ -2017,9 +2050,12 @@ function TeacherApp({onLogout}) {
           <div className="fade-up" style={{display:'flex',flexDirection:'column',gap:14}}>
             <div className="syne" style={{fontSize:18,fontWeight:800}}>📋 Devoirs diffusés</div>
 
-            {/* Formulaire nouveau devoir */}
-            <div style={{background:G.card,border:`1px solid ${G.accentHot}33`,borderRadius:15,padding:16}}>
-              <div className="syne" style={{fontWeight:700,marginBottom:11,color:G.accentHot,fontSize:13}}>➕ Nouveau devoir</div>
+            {/* Formulaire nouveau devoir / édition */}
+            <div style={{background:G.card,border:`1px solid ${editingAssign?G.accent:G.accentHot}33`,borderRadius:15,padding:16}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:11}}>
+                <div className="syne" style={{fontWeight:700,color:editingAssign?G.accent:G.accentHot,fontSize:13}}>{editingAssign?'✏️ Modifier le devoir':'➕ Nouveau devoir'}</div>
+                {editingAssign&&<button onClick={()=>{setEditingAssign(null);setAssignForm({title:'',instructions:'',due_date:'',classIds:[]})}} style={{background:'none',border:'none',color:G.muted,cursor:'pointer',fontSize:12}}>✕ Annuler</button>}
+              </div>
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <Inp placeholder="Titre du devoir *" value={assignForm.title} onChange={e=>setAssignForm({...assignForm,title:e.target.value})}/>
                 <Inp placeholder="Consignes (description, étapes, ressources…)" multi rows={5} value={assignForm.instructions} onChange={e=>setAssignForm({...assignForm,instructions:e.target.value})}/>
@@ -2035,7 +2071,7 @@ function TeacherApp({onLogout}) {
                     </div>
                   ))}
                 </div>
-                <Btn v="hot" onClick={addAssignment} disabled={!assignForm.title||!assignForm.classIds.length} loading={saving}>📤 Diffuser</Btn>
+                <Btn v={editingAssign?'primary':'hot'} onClick={addAssignment} disabled={!assignForm.title||!assignForm.classIds.length} loading={saving}>{editingAssign?'💾 Enregistrer':'📤 Diffuser'}</Btn>
               </div>
             </div>
 
@@ -2044,19 +2080,38 @@ function TeacherApp({onLogout}) {
             {assignments.map(a=>{
               const targetClasses=classes.filter(c=>a.classIds.includes(c.id))
               const isLate=a.due_date&&new Date(a.due_date)<new Date()
+              const concerned=students.filter(s=>a.classIds.includes(s.class_id))
+              const done=a.completions||[]
+              const doneCount=done.length
+              const total=concerned.length
+              const pct=total?Math.round(doneCount/total*100):0
               return (
                 <div key={a.id} style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:14,padding:14}}>
-                  <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:10}}>
                     <div style={{width:38,height:38,borderRadius:10,background:G.accentHot+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📋</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{a.title}</div>
-                      {a.due_date&&<div style={{fontSize:11,color:isLate?G.accentHot:G.gold,marginBottom:6}}>📅 Rendu : {new Date(a.due_date).toLocaleDateString('fr-FR')}{isLate?' — expiré':''}</div>}
-                      {a.instructions&&<div style={{fontSize:12,color:G.muted,marginBottom:8,whiteSpace:'pre-wrap',lineHeight:1.6}}>{a.instructions}</div>}
-                      <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+                      {a.due_date&&<div style={{fontSize:11,color:isLate?G.accentHot:G.gold,marginBottom:4}}>📅 {new Date(a.due_date).toLocaleDateString('fr-FR')}{isLate?' — expiré':''}</div>}
+                      {a.instructions&&<div style={{fontSize:12,color:G.muted,marginBottom:6,whiteSpace:'pre-wrap',lineHeight:1.5}}>{a.instructions}</div>}
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
                         {targetClasses.map(c=><Bdg key={c.id} color={c.color} sm>{c.name}</Bdg>)}
                       </div>
+                      {/* Barre de progression validations */}
+                      {total>0&&<>
+                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                          <div style={{fontSize:11,color:G.muted}}>Validé par {doneCount}/{total} élève{total>1?'s':''}</div>
+                          <div style={{fontSize:11,fontWeight:700,color:pct===100?G.accentGreen:G.accent}}>{pct}%</div>
+                        </div>
+                        <PBar value={pct} color={pct===100?G.accentGreen:G.accent} h={5}/>
+                        {doneCount>0&&<div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:7}}>
+                          {done.map((s,i)=><div key={i} style={{background:G.accentGreen+'22',border:`1px solid ${G.accentGreen}44`,borderRadius:6,padding:'2px 8px',fontSize:11,color:G.accentGreen}}>✓ {s.first_name} {s.last_name}</div>)}
+                        </div>}
+                      </>}
                     </div>
-                    <button onClick={()=>deleteAssignment(a.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:14,flexShrink:0}}>🗑</button>
+                    <div style={{display:'flex',flexDirection:'column',gap:5,flexShrink:0}}>
+                      <button onClick={()=>{setEditingAssign(a.id);setAssignForm({title:a.title,instructions:a.instructions||'',due_date:a.due_date||'',classIds:a.classIds});window.scrollTo({top:0,behavior:'smooth'})}} style={{background:'none',border:'none',color:G.accent,cursor:'pointer',fontSize:15}}>✏️</button>
+                      <button onClick={()=>deleteAssignment(a.id)} style={{background:'none',border:'none',color:G.accentHot,cursor:'pointer',fontSize:15}}>🗑</button>
+                    </div>
                   </div>
                 </div>
               )
